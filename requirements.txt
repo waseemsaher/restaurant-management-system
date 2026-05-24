@@ -1,0 +1,8 @@
+PyQt6==6.6.0
+reportlab==4.0.7
+openpyxl==3.1.2
+cryptography==41.0.7
+Pillow==10.1.0
+bcrypt==4.1.2
+arabic-reshaper==3.0.0
+python-bidi==0.4.2
