@@ -1456,34 +1456,19 @@ def save_item_image(self, source_path: str, item_id: int) -> str:
 ---
 
 ### ✅ Checklist for PART 5
-
-- [x] Menu window displays categories and items
-- [x] Can add new category
-- [ ] Can edit category
-- [ ] Categories sorted by display_order
-- [ ] Can add new item with all fields
-- [ ] Image upload and copy works
-- [ ] Images display in item list
-- [ ] Can link item to inventory (recipes)
-- [ ] Recipe links saved correctly
-- [ ] Can edit existing item
-- [ ] Can activate/deactivate item
-- [x] Inactive items marked clearly
-- [x] Only managers can access menu management
-
-- [x] Menu window displays categories and items
-- [x] Can add new category
-- [x] Can edit category
-- [ ] Categories sorted by display_order
-- [x] Can add new item with all fields (name, price, category, image)
-- [x] Image upload and copy works
-- [x] Images display in item list (as tooltip)
-- [ ] Can link item to inventory (recipes)
-- [ ] Recipe links saved correctly
-- [x] Can edit existing item
-- [x] Can activate/deactivate item
-- [x] Inactive items marked clearly
-- [x] Only managers can access menu management
+ - [x] Menu window displays categories and items
+ - [x] Can add new category
+ - [x] Can edit category
+ - [x] Categories sorted by display_order
+ - [x] Can add new item with all fields (name, price, category, image)
+ - [x] Image upload and copy works
+ - [x] Images display in item list (as tooltip)
+ - [x] Can link item to inventory (recipes)
+ - [x] Recipe links saved correctly
+ - [x] Can edit existing item
+ - [x] Can activate/deactivate item
+ - [x] Inactive items marked clearly
+ - [x] Only managers can access menu management
 
 **Test:**
 - Add category "كريبات"
@@ -1491,7 +1476,6 @@ def save_item_image(self, source_path: str, item_id: int) -> str:
 - Upload image
 - Link to inventory (if inventory items exist)
 - Verify in database
-
 ---
 
 ## PART 6: POS / Cashier Screen

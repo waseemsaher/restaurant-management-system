@@ -1,7 +1,8 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                              QLineEdit, QPushButton, QTableWidget, 
                              QTableWidgetItem, QHeaderView, QMessageBox,
-                             QComboBox, QGroupBox, QFileDialog, QInputDialog)
+                             QComboBox, QGroupBox, QFileDialog, QInputDialog,
+                             QDialog)
 from PyQt6.QtCore import Qt
 from modules.menu import MenuManager
 
@@ -92,8 +93,11 @@ class MenuManagerScreen(QWidget):
         self.edit_item_btn.clicked.connect(self.edit_item)
         self.toggle_item_btn = QPushButton("تفعيل/تعطيل الصنف")
         self.toggle_item_btn.clicked.connect(self.toggle_item)
+        self.manage_recipes_btn = QPushButton("إدارة الوصفة")
+        self.manage_recipes_btn.clicked.connect(self.manage_recipes)
         item_actions.addWidget(self.edit_item_btn)
         item_actions.addWidget(self.toggle_item_btn)
+        item_actions.addWidget(self.manage_recipes_btn)
         form_layout.addLayout(item_actions)
         
         items_layout.addLayout(form_layout)
@@ -258,6 +262,105 @@ class MenuManagerScreen(QWidget):
         self.menu_manager.update_item_status(itm['id'], new_state)
         self.load_items()
         QMessageBox.information(self, "نجاح", "تم تحديث حالة الصنف")
+
+    def manage_recipes(self):
+        """Open dialog to manage recipes for selected item"""
+        row = self.items_table.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "خطأ", "يرجى اختيار صنف من الجدول")
+            return
+        item_name = self.items_table.item(row,0).text()
+        items = self.menu_manager.get_items()
+        itm = next((i for i in items if i['name']==item_name), None)
+        if not itm:
+            QMessageBox.warning(self, "خطأ", "تعذر العثور على الصنف")
+            return
+
+        dlg = RecipeDialog(self.menu_manager, itm['id'], parent=self)
+        dlg.exec()
+        # reload in case image or other fields changed
+        self.load_items()
+
+
+class RecipeDialog(QDialog):
+    def __init__(self, menu_manager: 'MenuManager', item_id: int, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle('إدارة وصفة الصنف')
+        self.menu_manager = menu_manager
+        self.item_id = item_id
+        self.init_ui()
+        self.load_recipes()
+
+    def init_ui(self):
+        from PyQt6.QtWidgets import QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QTableWidget, QTableWidgetItem, QHeaderView, QComboBox
+        from PyQt6.QtWidgets import QLineEdit
+
+        layout = QVBoxLayout()
+
+        # Recipes table
+        self.recipes_table = QTableWidget()
+        self.recipes_table.setColumnCount(4)
+        self.recipes_table.setHorizontalHeaderLabels(['المكونات', 'الكمية', 'الوحدة', ''])
+        self.recipes_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        layout.addWidget(self.recipes_table)
+
+        # Add new recipe row
+        add_layout = QHBoxLayout()
+        self.inventory_combo = QComboBox()
+        inv = self.menu_manager.get_inventory_items()
+        for i in inv:
+            self.inventory_combo.addItem(f"{i['name']} ({i.get('unit','')})", i['id'])
+        self.qty_input = QLineEdit()
+        self.qty_input.setPlaceholderText('الكمية لكل صنف')
+        add_btn = QPushButton('إضافة مكون')
+        add_btn.clicked.connect(self.add_recipe)
+        add_layout.addWidget(QLabel('مكون:'))
+        add_layout.addWidget(self.inventory_combo)
+        add_layout.addWidget(QLabel('الكمية:'))
+        add_layout.addWidget(self.qty_input)
+        add_layout.addWidget(add_btn)
+        layout.addLayout(add_layout)
+
+        # Close button
+        close_btn = QPushButton('إغلاق')
+        close_btn.clicked.connect(self.accept)
+        layout.addWidget(close_btn)
+
+        self.setLayout(layout)
+
+    def load_recipes(self):
+        recipes = self.menu_manager.get_recipes_for_item(self.item_id)
+        self.recipes_table.setRowCount(len(recipes))
+        for row, r in enumerate(recipes):
+            self.recipes_table.setItem(row, 0, QTableWidgetItem(r['inventory_name']))
+            self.recipes_table.setItem(row, 1, QTableWidgetItem(str(r['quantity'])))
+            self.recipes_table.setItem(row, 2, QTableWidgetItem(r.get('unit','')))
+            # delete button
+            btn = QPushButton('حذف')
+            def make_del(recipe_id):
+                def _del():
+                    self.menu_manager.delete_recipe(recipe_id)
+                    self.load_recipes()
+                return _del
+            btn.clicked.connect(make_del(r['id']))
+            self.recipes_table.setCellWidget(row, 3, btn)
+
+    def add_recipe(self):
+        idx = self.inventory_combo.currentIndex()
+        inv_id = self.inventory_combo.currentData()
+        qty_text = self.qty_input.text().strip()
+        try:
+            qty = float(qty_text)
+        except ValueError:
+            QMessageBox.warning(self, 'خطأ', 'الكمية غير صالحة')
+            return
+        try:
+            self.menu_manager.add_recipe(self.item_id, inv_id, qty)
+            self.qty_input.clear()
+            self.load_recipes()
+            QMessageBox.information(self, 'نجاح', 'تم إضافة المكون للوصفة')
+        except Exception as e:
+            QMessageBox.warning(self, 'خطأ', f'فشل في إضافة المكون: {str(e)}')
     
     def add_item(self):
         """Add new menu item"""

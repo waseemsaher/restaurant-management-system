@@ -29,6 +29,19 @@ def initialize_database():
             FOREIGN KEY (restaurant_id) REFERENCES restaurants(id)
         )
     """)
+    # Ensure display_order column exists for ordering categories
+    cols = db.execute("PRAGMA table_info(menu_categories)")
+    col_names = [c['name'] for c in cols]
+    if 'display_order' not in col_names:
+        try:
+            db.execute("ALTER TABLE menu_categories ADD COLUMN display_order INTEGER DEFAULT NULL")
+            # Backfill display_order with sequential values based on id
+            rows = db.execute("SELECT id FROM menu_categories ORDER BY id")
+            for idx, r in enumerate(rows, start=1):
+                db.execute_non_query("UPDATE menu_categories SET display_order = ? WHERE id = ?", (idx, r['id']))
+        except Exception:
+            # Some SQLite versions may not support ALTER ADD in older contexts; ignore on failure
+            pass
     
     # 3. menu_items
     db.execute("""
