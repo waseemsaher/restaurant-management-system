@@ -1471,6 +1471,20 @@ def save_item_image(self, source_path: str, item_id: int) -> str:
 - [x] Inactive items marked clearly
 - [x] Only managers can access menu management
 
+- [x] Menu window displays categories and items
+- [x] Can add new category
+- [x] Can edit category
+- [ ] Categories sorted by display_order
+- [x] Can add new item with all fields (name, price, category, image)
+- [x] Image upload and copy works
+- [x] Images display in item list (as tooltip)
+- [ ] Can link item to inventory (recipes)
+- [ ] Recipe links saved correctly
+- [x] Can edit existing item
+- [x] Can activate/deactivate item
+- [x] Inactive items marked clearly
+- [x] Only managers can access menu management
+
 **Test:**
 - Add category "كريبات"
 - Add item "كريب جبنة" with price 20

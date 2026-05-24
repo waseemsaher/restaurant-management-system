@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                              QLineEdit, QPushButton, QTableWidget, 
                              QTableWidgetItem, QHeaderView, QMessageBox,
-                             QComboBox, QGroupBox)
+                             QComboBox, QGroupBox, QFileDialog, QInputDialog)
 from PyQt6.QtCore import Qt
 from modules.menu import MenuManager
 
@@ -41,6 +41,15 @@ class MenuManagerScreen(QWidget):
         self.categories_table.setHorizontalHeaderLabels(["القسم", "الحالة"])
         self.categories_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         categories_layout.addWidget(self.categories_table)
+        # Category action buttons
+        cat_actions = QHBoxLayout()
+        self.edit_category_btn = QPushButton("تعديل القسم")
+        self.edit_category_btn.clicked.connect(self.edit_category)
+        self.toggle_category_btn = QPushButton("تفعيل/تعطيل")
+        self.toggle_category_btn.clicked.connect(self.toggle_category)
+        cat_actions.addWidget(self.edit_category_btn)
+        cat_actions.addWidget(self.toggle_category_btn)
+        categories_layout.addLayout(cat_actions)
         
         layout.addWidget(categories_group)
         
@@ -65,10 +74,27 @@ class MenuManagerScreen(QWidget):
         form_layout.addWidget(self.item_price_input)
         form_layout.addWidget(QLabel("القسم:"))
         form_layout.addWidget(self.category_combo)
+        # Image chooser
+        img_choose_layout = QHBoxLayout()
+        self.image_path_label = QLabel("")
+        choose_img_btn = QPushButton("اختر صورة")
+        choose_img_btn.clicked.connect(self.choose_image)
+        img_choose_layout.addWidget(choose_img_btn)
+        img_choose_layout.addWidget(self.image_path_label)
+        form_layout.addLayout(img_choose_layout)
         
         add_item_btn = QPushButton("إضافة صنف")
         add_item_btn.clicked.connect(self.add_item)
         form_layout.addWidget(add_item_btn)
+        # Item action buttons
+        item_actions = QHBoxLayout()
+        self.edit_item_btn = QPushButton("تعديل الصنف")
+        self.edit_item_btn.clicked.connect(self.edit_item)
+        self.toggle_item_btn = QPushButton("تفعيل/تعطيل الصنف")
+        self.toggle_item_btn.clicked.connect(self.toggle_item)
+        item_actions.addWidget(self.edit_item_btn)
+        item_actions.addWidget(self.toggle_item_btn)
+        form_layout.addLayout(item_actions)
         
         items_layout.addLayout(form_layout)
         
@@ -128,6 +154,14 @@ class MenuManagerScreen(QWidget):
             status_text = "متاح" if item['is_available'] else "غير متاح"
             item_widget = QTableWidgetItem(status_text)
             self.items_table.setItem(row, 3, item_widget)
+            # Image tooltip if available
+            img = item.get('image_path')
+            if img:
+                try:
+                    self.items_table.item(row,0).setToolTip(img)
+                except Exception:
+                    pass
+
     
     def add_category(self):
         """Add new category"""
@@ -144,6 +178,86 @@ class MenuManagerScreen(QWidget):
             QMessageBox.information(self, "نجاح", "تم إضافة القسم بنجاح")
         except Exception as e:
             QMessageBox.warning(self, "خطأ", f"فشل في إضافة القسم: {str(e)}")
+
+    def edit_category(self):
+        row = self.categories_table.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "خطأ", "يرجى اختيار قسم من الجدول")
+            return
+        cat_name = self.categories_table.item(row,0).text()
+        categories = self.menu_manager.get_categories()
+        cat = next((c for c in categories if c['name']==cat_name), None)
+        if not cat:
+            QMessageBox.warning(self, "خطأ", "تعذر العثور على القسم")
+            return
+        new_name, ok = QInputDialog.getText(self, "تعديل القسم", "الاسم الجديد:", text=cat_name)
+        if ok and new_name.strip():
+            self.menu_manager.update_category(cat['id'], new_name.strip())
+            self.load_categories()
+            QMessageBox.information(self, "نجاح", "تم تعديل القسم")
+
+    def toggle_category(self):
+        row = self.categories_table.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "خطأ", "يرجى اختيار قسم من الجدول")
+            return
+        cat_name = self.categories_table.item(row,0).text()
+        categories = self.menu_manager.get_categories()
+        cat = next((c for c in categories if c['name']==cat_name), None)
+        if not cat:
+            QMessageBox.warning(self, "خطأ", "تعذر العثور على القسم")
+            return
+        new_state = 0 if cat['is_active'] else 1
+        self.menu_manager.update_category_status(cat['id'], new_state)
+        self.load_categories()
+        QMessageBox.information(self, "نجاح", "تم تحديث حالة القسم")
+
+    def choose_image(self):
+        fname, _ = QFileDialog.getOpenFileName(self, "اختر صورة", "", "Images (*.png *.jpg *.jpeg)")
+        if fname:
+            self.image_path_label.setText(fname)
+
+    def edit_item(self):
+        row = self.items_table.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "خطأ", "يرجى اختيار صنف من الجدول")
+            return
+        item_name = self.items_table.item(row,0).text()
+        items = self.menu_manager.get_items()
+        itm = next((i for i in items if i['name']==item_name), None)
+        if not itm:
+            QMessageBox.warning(self, "خطأ", "تعذر العثور على الصنف")
+            return
+        new_name, ok1 = QInputDialog.getText(self, "تعديل الصنف", "الاسم:", text=itm['name'])
+        if not ok1:
+            return
+        new_price_text, ok2 = QInputDialog.getText(self, "تعديل الصنف", "السعر:", text=str(itm['price']))
+        if not ok2:
+            return
+        try:
+            new_price = float(new_price_text)
+        except ValueError:
+            QMessageBox.warning(self, "خطأ", "السعر غير صالح")
+            return
+        self.menu_manager.update_item(itm['id'], name=new_name.strip(), price=new_price)
+        self.load_items()
+        QMessageBox.information(self, "نجاح", "تم تعديل الصنف")
+
+    def toggle_item(self):
+        row = self.items_table.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "خطأ", "يرجى اختيار صنف من الجدول")
+            return
+        item_name = self.items_table.item(row,0).text()
+        items = self.menu_manager.get_items()
+        itm = next((i for i in items if i['name']==item_name), None)
+        if not itm:
+            QMessageBox.warning(self, "خطأ", "تعذر العثور على الصنف")
+            return
+        new_state = 0 if itm['is_available'] else 1
+        self.menu_manager.update_item_status(itm['id'], new_state)
+        self.load_items()
+        QMessageBox.information(self, "نجاح", "تم تحديث حالة الصنف")
     
     def add_item(self):
         """Add new menu item"""
@@ -157,10 +271,29 @@ class MenuManagerScreen(QWidget):
         
         try:
             price = float(price_text)
+            # add item (image handled after insert)
             self.menu_manager.add_item(name, price, category_id)
+            # handle image copy if chosen
+            img = self.image_path_label.text().strip()
+            if img:
+                from pathlib import Path, shutil
+                # get last inserted id
+                last = self.menu_manager.db.execute("SELECT id FROM menu_items ORDER BY id DESC LIMIT 1")
+                if last:
+                    item_id = last[0]['id']
+                    assets_dir = Path('assets/items')
+                    assets_dir.mkdir(parents=True, exist_ok=True)
+                    src = Path(img)
+                    dest = assets_dir / f"item_{item_id}{src.suffix}"
+                    try:
+                        shutil.copy(src, dest)
+                        self.menu_manager.update_item(item_id, image_path=str(dest))
+                    except Exception:
+                        pass
             self.load_items()
             self.item_name_input.clear()
             self.item_price_input.clear()
+            self.image_path_label.setText("")
             QMessageBox.information(self, "نجاح", "تم إضافة الصنف بنجاح")
         except ValueError:
             QMessageBox.warning(self, "خطأ", "السعر يجب أن يكون رقماً")
