@@ -8,13 +8,22 @@ class OrderManager:
         self.shifts_manager = ShiftsManager()
     
     def get_next_order_number(self) -> int:
-        """Get next order number"""
-        last_order = self.db.execute(
-            "SELECT order_number FROM orders ORDER BY id DESC LIMIT 1"
+        """Get next order number in format ORD-YYYYMMDD-####"""
+        today = datetime.now().strftime('%Y%m%d')
+        prefix = f"ORD-{today}-"
+        last = self.db.execute(
+            "SELECT order_number FROM orders WHERE order_number LIKE ? ORDER BY id DESC LIMIT 1",
+            (f"{prefix}%",)
         )
-        if last_order:
-            return last_order[0]['order_number'] + 1
-        return 1000
+        if last:
+            try:
+                last_num = int(last[0]['order_number'].split('-')[-1])
+                new_num = last_num + 1
+            except Exception:
+                new_num = 1
+        else:
+            new_num = 1
+        return f"{prefix}{new_num:04d}"
     
     def get_categories(self) -> list:
         """Get all menu categories"""
@@ -45,17 +54,22 @@ class OrderManager:
         items = self.db.execute("SELECT * FROM menu_items WHERE id = ?", (item_id,))
         return items[0] if items else {}
     
-    def get_recipe(self, item_id: int) -> dict:
-        """Get recipe for item"""
+    def get_recipes(self, item_id: int) -> list:
+        """Get all recipes for item as a list"""
         recipes = self.db.execute("""
             SELECT r.*, ii.name as inventory_item_name, ii.unit 
             FROM recipes r 
             JOIN inventory_items ii ON r.inventory_item_id = ii.id 
             WHERE r.item_id = ?
         """, (item_id,))
-        return recipes[0] if recipes else {}
+        return recipes
+
+    # Backwards-compatible alias
+    def get_recipe(self, item_id: int):
+        rs = self.get_recipes(item_id)
+        return rs[0] if rs else {}
     
-    def create_order(self, employee_id: int, order_number: int, total_amount: float, payment_method: str) -> int:
+    def create_order(self, employee_id: int, order_number: int, total_amount: float, payment_method: str, order_type: str = 'takeaway', table_id: int = None) -> int:
         """Create new order"""
         # Get current shift
         shift = self.shifts_manager.get_current_shift(employee_id)
@@ -65,11 +79,25 @@ class OrderManager:
         else:
             shift_id = shift['id']
             
-        query = """
-            INSERT INTO orders (order_number, shift_id, employee_id, total_amount, payment_method) 
-            VALUES (?, ?, ?, ?, ?)
-        """
-        self.db.execute_non_query(query, (order_number, shift_id, employee_id, total_amount, payment_method))
+        # Build INSERT dynamically depending on available columns
+        cols_info = self.db.execute("PRAGMA table_info(orders)")
+        col_names = [c['name'] for c in cols_info]
+
+        insert_cols = ['order_number', 'shift_id', 'employee_id', 'total_amount', 'payment_method']
+        params = [order_number, shift_id, employee_id, total_amount, payment_method]
+
+        if 'order_type' in col_names:
+            insert_cols.append('order_type')
+            params.append(order_type)
+
+        if 'table_id' in col_names and table_id is not None:
+            insert_cols.append('table_id')
+            params.append(table_id)
+
+        qcols = ', '.join(insert_cols)
+        qmarks = ', '.join(['?'] * len(insert_cols))
+        query = f"INSERT INTO orders ({qcols}) VALUES ({qmarks})"
+        self.db.execute_non_query(query, tuple(params))
         return self.db.get_last_insert_id()
     
     def add_order_item(self, order_id: int, menu_item_id: int, quantity: int):

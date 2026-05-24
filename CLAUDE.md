@@ -1727,24 +1727,26 @@ if self.config.get('features.tables_enabled'):
 
 ### ✅ Checklist for PART 6
 
-- [ ] POS window displays with correct layout
+- [x] POS window displays with correct layout (includes item buttons)
 - [x] Categories loaded from database
 - [x] Items loaded based on selected category
-- [ ] Item buttons show name and price
+- [x] Item buttons show name and price
 - [x] Clicking item adds to order
-- [ ] Quantity controls work (+/-)
-- [ ] Delete item removes from order
+- [x] Quantity controls work (+/-)
+- [x] Delete item removes from order
+ - [x] Quantity controls work (+/-)
+ - [x] Delete item removes from order
 - [x] Total calculates correctly
 - [x] Order number generated correctly
 - [x] Payment processes and saves to database
 - [x] Order items saved correctly
 - [x] Inventory deducted automatically
-- [ ] Invoice dialog displays order details
-- [ ] Invoice formatted correctly with all fields
-- [ ] Print button works (or shows message if no printer)
+ - [x] Invoice dialog displays order details
+ - [x] Invoice formatted correctly with all fields (basic)
+ - [x] Print button works (sends to `lp`/`lpr` if available, otherwise instructs manual print)
 - [x] Search bar filters items
 - [x] Order clears after payment
-- [ ] Table support works if enabled
+- [x] Table support works if enabled
 
 **Test:**
 - Add multiple items to order
@@ -1917,14 +1919,14 @@ Log every inventory change for tracking.
 
 - [x] Inventory window displays all materials
 - [x] Low stock items shown in red
-- [ ] Alert banner shows when low stock exists
+- [x] Alert banner shows when low stock exists
 - [x] Can add new material with all fields
 - [x] Unit dropdown works
 - [x] Can add quantity (purchase)
 - [x] Quantity updates correctly in database
-- [ ] Can edit material details
-- [ ] Search/filter works
-- [ ] Updated timestamp shows on changes
+- [x] Can edit material details
+- [x] Search/filter works
+- [x] Updated timestamp shows on changes
 - [x] Inventory deduction from POS works (tested in PART 6)
 
 **Test:**

@@ -44,11 +44,15 @@ class AuthManager:
         hashed = self.hash_password(password)
         if full_name is None:
             full_name = username
-        query = """
-            INSERT INTO employees (username, password_hash, full_name, role, is_active)
-            VALUES (?, ?, ?, ?, 1)
-        """
-        self.db.execute_non_query(query, (username, hashed, full_name, role))
+        # adapt to current employees table schema (some DBs lack full_name)
+        cols = [c['name'] for c in self.db.execute("PRAGMA table_info(employees)")]
+        if 'full_name' in cols:
+            query = "INSERT INTO employees (username, password_hash, full_name, role, is_active) VALUES (?, ?, ?, ?, 1)"
+            params = (username, hashed, full_name, role)
+        else:
+            query = "INSERT INTO employees (username, password_hash, role, is_active) VALUES (?, ?, ?, 1)"
+            params = (username, hashed, role)
+        self.db.execute_non_query(query, params)
         return self.db.get_last_insert_id()
 
     def login(self, username: str, password: str) -> Optional[dict]:

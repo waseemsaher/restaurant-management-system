@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
 from PyQt6.QtCore import Qt, QTimer
 from modules.orders import OrderManager
 from modules.inventory import InventoryManager
+from ui.components.invoice_dialog import InvoiceDialog
 from datetime import datetime
 import os
 
@@ -61,6 +62,13 @@ class POSScreen(QWidget):
         
         left_panel.addWidget(categories_group)
         
+        # Items area: will show item buttons for selected category
+        self.items_group = QGroupBox("الأصناف")
+        self.items_layout = QHBoxLayout(self.items_group)
+        self.items_layout.setSpacing(8)
+        self.items_group.setMinimumHeight(240)
+        left_panel.addWidget(self.items_group)
+        
         # Recent Items / Quick Actions (Optional placeholder)
         left_panel.addStretch()
         
@@ -82,6 +90,22 @@ class POSScreen(QWidget):
         
         header_layout.addWidget(self.order_label)
         header_layout.addWidget(self.datetime_label)
+        # Order type and table selection
+        from utils.config import ConfigManager
+        cfg = ConfigManager()
+        cfg.load_config()
+        if cfg.get('tables.enabled'):
+            self.order_type_combo = QComboBox()
+            self.order_type_combo.addItems(['takeaway', 'dine-in'])
+            header_layout.addWidget(self.order_type_combo)
+
+            # load tables from DB
+            tables = self.order_manager.db.execute('SELECT * FROM tables')
+            self.table_combo = QComboBox()
+            self.table_combo.addItem('اختر طاولة', None)
+            for t in tables:
+                self.table_combo.addItem(t['table_number'], t['id'])
+            header_layout.addWidget(self.table_combo)
         right_panel.addWidget(order_header)
         
         # Order Table
@@ -90,6 +114,7 @@ class POSScreen(QWidget):
         self.order_table.setHorizontalHeaderLabels(["الصنف", "الكمية", "السعر", "الإجمالي"])
         self.order_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.order_table.verticalHeader().setVisible(False)
+        self.order_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         right_panel.addWidget(self.order_table)
         
         # Summary
@@ -112,12 +137,18 @@ class POSScreen(QWidget):
         clear_btn.setMinimumHeight(45)
         clear_btn.clicked.connect(self.clear_order)
         
+        delete_btn = QPushButton("حذف الصنف")
+        delete_btn.setObjectName("delete_btn")
+        delete_btn.setMinimumHeight(45)
+        delete_btn.clicked.connect(self.remove_selected_item)
+        
         checkout_btn = QPushButton("إتمام الطلب")
         checkout_btn.setObjectName("checkout_btn")
         checkout_btn.setMinimumHeight(45)
         checkout_btn.clicked.connect(self.checkout)
         
         actions_layout.addWidget(clear_btn)
+        actions_layout.addWidget(delete_btn)
         actions_layout.addWidget(checkout_btn)
         
         right_panel.addLayout(actions_layout)
@@ -185,37 +216,20 @@ class POSScreen(QWidget):
     def category_button_clicked(self):
         sender = self.sender()
         category_id = sender.property("category_id")
+        # populate items area with buttons
         items = self.order_manager.get_items_by_category(category_id)
-        
-        dialog = QDialog(self)
-        dialog.setWindowTitle(f"أصناف: {sender.text()}")
-        dialog.setFixedSize(500, 500)
-        dialog.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
-        layout = QVBoxLayout(dialog)
-        
-        table = QTableWidget()
-        table.setColumnCount(3)
-        table.setHorizontalHeaderLabels(["الصنف", "السعر", "الكمية"])
-        table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        
+        # clear existing widgets
+        for i in reversed(range(self.items_layout.count())):
+            w = self.items_layout.itemAt(i).widget()
+            if w:
+                w.setParent(None)
+
         for item in items:
-            row = table.rowCount()
-            table.insertRow(row)
-            table.setItem(row, 0, QTableWidgetItem(item['name']))
-            table.setItem(row, 1, QTableWidgetItem(f"{item['price']:.2f}"))
-            
-            spin = QSpinBox()
-            spin.setRange(1, 100)
-            table.setCellWidget(row, 2, spin)
-            table.item(row, 1).setData(Qt.ItemDataRole.UserRole, item['id'])
-        
-        layout.addWidget(table)
-        
-        add_btn = QPushButton("تأكيد الإضافة")
-        add_btn.clicked.connect(lambda: self.add_multiple_from_dialog(table, dialog))
-        layout.addWidget(add_btn)
-        
-        dialog.exec()
+            btn = QPushButton(f"{item['name']}\n{item['price']:.2f} ج.م")
+            btn.setMinimumSize(120, 60)
+            btn.setProperty('item_id', item['id'])
+            btn.clicked.connect(lambda _, bid=item['id']: self.add_item_to_order(bid, 1))
+            self.items_layout.addWidget(btn)
 
     def add_multiple_from_dialog(self, table, dialog):
         selected = table.selectionModel().selectedRows()
@@ -240,10 +254,13 @@ class POSScreen(QWidget):
         if not item or not item['is_available']:
             QMessageBox.warning(self, "خطأ", "الصنف غير متاح")
             return
-        
-        recipe = self.order_manager.get_recipe(item_id)
-        if recipe:
+        # check all recipe components for availability
+        recipes = self.order_manager.get_recipes(item_id)
+        for recipe in recipes:
             inv = self.inventory_manager.get_item(recipe['inventory_item_id'])
+            if not inv:
+                QMessageBox.warning(self, "المخزون", f"مكون {recipe.get('inventory_item_name','?')} غير موجود في المخزون")
+                return
             if inv['current_quantity'] < (recipe['quantity'] * quantity):
                 QMessageBox.warning(self, "المخزون", f"كمية {inv['name']} لا تكفي")
                 return
@@ -262,12 +279,42 @@ class POSScreen(QWidget):
         total = 0
         for row, item in enumerate(self.current_order):
             self.order_table.setItem(row, 0, QTableWidgetItem(item['name']))
-            self.order_table.setItem(row, 1, QTableWidgetItem(str(item['quantity'])))
+            # Quantity as spinbox
+            spin = QSpinBox()
+            spin.setRange(1, 999)
+            spin.setValue(item['quantity'])
+            spin.setProperty('item_id', item['id'])
+            spin.valueChanged.connect(lambda val, s=spin: self.on_quantity_changed(s, val))
+            self.order_table.setCellWidget(row, 1, spin)
             self.order_table.setItem(row, 2, QTableWidgetItem(f"{item['price']:.2f}"))
             item_total = item['price'] * item['quantity']
             self.order_table.setItem(row, 3, QTableWidgetItem(f"{item_total:.2f}"))
             total += item_total
         self.total_label.setText(f"الإجمالي: {total:.2f} ج.م")
+
+    def on_quantity_changed(self, spinbox, value):
+        item_id = spinbox.property('item_id')
+        for i, it in enumerate(self.current_order):
+            if it['id'] == item_id:
+                self.current_order[i]['quantity'] = value
+                break
+        self.update_order_table()
+
+    def remove_selected_item(self):
+        row = self.order_table.currentRow()
+        if row < 0:
+            QMessageBox.information(self, "حذف", "اختر صف لحذفه")
+            return
+        # confirm
+        reply = QMessageBox.question(self, 'تأكيد', 'هل تريد حذف الصنف المحدد؟', QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+        # determine item id from spinbox in that row
+        widget = self.order_table.cellWidget(row, 1)
+        if widget:
+            item_id = widget.property('item_id')
+            self.current_order = [it for it in self.current_order if it['id'] != item_id]
+            self.update_order_table()
 
     def clear_order(self):
         if not self.current_order: return
@@ -294,11 +341,19 @@ class POSScreen(QWidget):
         msg.exec()
         
         if msg.clickedButton() == yes_btn:
-            order_id = self.order_manager.create_order(self.user_session['id'], self.order_number, total, "cash")
+            # determine table and order type if present
+            table_id = None
+            order_type = 'takeaway'
+            if hasattr(self, 'table_combo'):
+                table_id = self.table_combo.currentData()
+            if hasattr(self, 'order_type_combo'):
+                order_type = self.order_type_combo.currentText()
+
+            order_id = self.order_manager.create_order(self.user_session['id'], self.order_number, total, "cash", order_type=order_type, table_id=table_id)
             for item in self.current_order:
                 self.order_manager.add_order_item(order_id, item['id'], item['quantity'])
-                recipe = self.order_manager.get_recipe(item['id'])
-                if recipe:
+                recipes = self.order_manager.get_recipes(item['id'])
+                for recipe in recipes:
                     self.inventory_manager.consume_item(recipe['inventory_item_id'], recipe['quantity'] * item['quantity'])
             
             self.order_manager.update_shift_stats(self.user_session['id'], total)
@@ -312,12 +367,5 @@ class POSScreen(QWidget):
     def generate_receipt(self, order_id):
         order = self.order_manager.get_order(order_id)
         items = self.order_manager.get_order_items(order_id)
-        if not os.path.exists("receipts"): os.makedirs("receipts")
-        with open(f"receipts/receipt_{order_id}.txt", "w", encoding="utf-8") as f:
-            f.write(f"رقم الطلب: {order['order_number']}\n")
-            f.write(f"التاريخ: {order['order_time']}\n")
-            f.write("-" * 20 + "\n")
-            for item in items:
-                f.write(f"{item['name']} x{item['quantity']} : {item['price_at_time'] * item['quantity']}\n")
-            f.write("-" * 20 + "\n")
-            f.write(f"الإجمالي: {order['total_amount']}\n")
+        dialog = InvoiceDialog(self, order, items)
+        dialog.exec()

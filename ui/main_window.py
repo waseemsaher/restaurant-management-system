@@ -114,7 +114,6 @@ class MainWindow(QMainWindow):
         
         # Shifts menu
         shifts_menu = menubar.addMenu("الشيفتات")
-        from PyQt6.QtGui import QAction
 
         open_shift_action = QAction("فتح شيفت جديد", self)
         open_shift_action.triggered.connect(self.open_shift)

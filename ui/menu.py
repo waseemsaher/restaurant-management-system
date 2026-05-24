@@ -281,6 +281,48 @@ class MenuManagerScreen(QWidget):
         # reload in case image or other fields changed
         self.load_items()
 
+    def add_item(self):
+        """Add new menu item"""
+        name = self.item_name_input.text().strip()
+        price_text = self.item_price_input.text().strip()
+        category_id = self.category_combo.currentData()
+
+        if not name or not price_text or not category_id:
+            QMessageBox.warning(self, "خطأ", "يرجى إدخال جميع البيانات")
+            return
+
+        try:
+            price = float(price_text)
+            self.menu_manager.add_item(name, price, category_id)
+
+            img = self.image_path_label.text().strip()
+            if img:
+                from pathlib import Path
+                import shutil
+
+                last = self.menu_manager.db.execute("SELECT id FROM menu_items ORDER BY id DESC LIMIT 1")
+                if last:
+                    item_id = last[0]['id']
+                    assets_dir = Path('assets/items')
+                    assets_dir.mkdir(parents=True, exist_ok=True)
+                    src = Path(img)
+                    dest = assets_dir / f"item_{item_id}{src.suffix}"
+                    try:
+                        shutil.copy(src, dest)
+                        self.menu_manager.update_item(item_id, image_path=str(dest))
+                    except Exception:
+                        pass
+
+            self.load_items()
+            self.item_name_input.clear()
+            self.item_price_input.clear()
+            self.image_path_label.setText("")
+            QMessageBox.information(self, "نجاح", "تم إضافة الصنف بنجاح")
+        except ValueError:
+            QMessageBox.warning(self, "خطأ", "السعر يجب أن يكون رقماً")
+        except Exception as e:
+            QMessageBox.warning(self, "خطأ", f"فشل في إضافة الصنف: {str(e)}")
+
 
 class RecipeDialog(QDialog):
     def __init__(self, menu_manager: 'MenuManager', item_id: int, parent=None):
@@ -358,46 +400,6 @@ class RecipeDialog(QDialog):
             self.menu_manager.add_recipe(self.item_id, inv_id, qty)
             self.qty_input.clear()
             self.load_recipes()
-            QMessageBox.information(self, 'نجاح', 'تم إضافة المكون للوصفة')
-        except Exception as e:
-            QMessageBox.warning(self, 'خطأ', f'فشل في إضافة المكون: {str(e)}')
-    
-    def add_item(self):
-        """Add new menu item"""
-        name = self.item_name_input.text().strip()
-        price_text = self.item_price_input.text().strip()
-        category_id = self.category_combo.currentData()
-        
-        if not name or not price_text or not category_id:
-            QMessageBox.warning(self, "خطأ", "يرجى إدخال جميع البيانات")
-            return
-        
-        try:
-            price = float(price_text)
-            # add item (image handled after insert)
-            self.menu_manager.add_item(name, price, category_id)
-            # handle image copy if chosen
-            img = self.image_path_label.text().strip()
-            if img:
-                from pathlib import Path, shutil
-                # get last inserted id
-                last = self.menu_manager.db.execute("SELECT id FROM menu_items ORDER BY id DESC LIMIT 1")
-                if last:
-                    item_id = last[0]['id']
-                    assets_dir = Path('assets/items')
-                    assets_dir.mkdir(parents=True, exist_ok=True)
-                    src = Path(img)
-                    dest = assets_dir / f"item_{item_id}{src.suffix}"
-                    try:
-                        shutil.copy(src, dest)
-                        self.menu_manager.update_item(item_id, image_path=str(dest))
-                    except Exception:
-                        pass
-            self.load_items()
-            self.item_name_input.clear()
-            self.item_price_input.clear()
-            self.image_path_label.setText("")
-            QMessageBox.information(self, "نجاح", "تم إضافة الصنف بنجاح")
         except ValueError:
             QMessageBox.warning(self, "خطأ", "السعر يجب أن يكون رقماً")
         except Exception as e:
