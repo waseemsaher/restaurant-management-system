@@ -45,10 +45,12 @@ Start the application:
 python main.py
 ```
 
-On first run, if no users exist, a default admin account is created:
+On first launch (when no employees exist), a default admin account is created:
 
 - Username: `admin`
 - Password: `admin`
+
+⚠️ Change the default password immediately after first login.
 
 ## Test
 
@@ -68,4 +70,3 @@ utils/      # Config and style helpers
 tests/      # Smoke test script
 main.py     # Application entry point
 ```
-
