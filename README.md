@@ -45,12 +45,12 @@ Start the application:
 python main.py
 ```
 
-On first launch (when no employees exist), a default admin account is created:
+On startup, if the `employees` table is empty (typical on a fresh setup), a default admin account is created:
 
 - Username: `admin`
 - Password: `admin`
 
-⚠️ Change the default password immediately after first login.
+⚠️ This weak default is only for first-time local setup. Change the password immediately after first login.
 
 ## Test
 
