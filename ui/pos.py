@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                              QLineEdit, QPushButton, QTableWidget, 
                              QTableWidgetItem, QHeaderView, QMessageBox,
-                             QComboBox, QGroupBox, QSpinBox, QDialog, QDialogButtonBox, QFrame)
+                             QComboBox, QGroupBox, QSpinBox, QDialog, QDialogButtonBox, QFrame, QGridLayout, QScrollArea)
 from PyQt6.QtCore import Qt, QTimer
 from modules.orders import OrderManager
 from modules.inventory import InventoryManager
@@ -48,26 +48,39 @@ class POSScreen(QWidget):
         
         # Categories
         categories_group = QGroupBox("الأقسام")
-        categories_layout = QHBoxLayout(categories_group)
+        categories_layout = QGridLayout(categories_group)
         categories_layout.setSpacing(10)
         
         categories = self.order_manager.get_categories()
+        row, col = 0, 0
         for category in categories:
             btn = QPushButton(category['name'])
             btn.setMinimumHeight(50)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.clicked.connect(self.category_button_clicked)
             btn.setProperty("category_id", category['id'])
-            categories_layout.addWidget(btn)
+            categories_layout.addWidget(btn, row, col)
+            col += 1
+            if col > 3:
+                col = 0
+                row += 1
         
         left_panel.addWidget(categories_group)
         
         # Items area: will show item buttons for selected category
         self.items_group = QGroupBox("الأصناف")
-        self.items_layout = QHBoxLayout(self.items_group)
+        self.items_layout = QGridLayout()
         self.items_layout.setSpacing(8)
-        self.items_group.setMinimumHeight(240)
-        left_panel.addWidget(self.items_group)
+        
+        # Scroll area for items if they are many
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        items_container = QWidget()
+        items_container.setLayout(self.items_layout)
+        scroll.setWidget(items_container)
+        scroll.setMinimumHeight(300)
+        
+        left_panel.addWidget(scroll)
         
         # Recent Items / Quick Actions (Optional placeholder)
         left_panel.addStretch()
@@ -227,33 +240,34 @@ class POSScreen(QWidget):
         items = self.order_manager.get_items_by_category(category_id)
         # clear existing widgets
         for i in reversed(range(self.items_layout.count())):
-            w = self.items_layout.itemAt(i).widget()
-            if w:
-                w.setParent(None)
+            item = self.items_layout.itemAt(i)
+            if item.widget():
+                item.widget().setParent(None)
 
+        row, col = 0, 0
         for item in items:
             btn = QPushButton(f"{item['name']}\n{item['price']:.2f} ج.م")
             btn.setMinimumSize(120, 60)
             btn.setProperty('item_id', item['id'])
             btn.clicked.connect(lambda _, bid=item['id']: self.add_item_to_order(bid, 1))
-            self.items_layout.addWidget(btn)
+            self.items_layout.addWidget(btn, row, col)
+            col += 1
+            if col > 3:
+                col = 0
+                row += 1
 
     def add_multiple_from_dialog(self, table, dialog):
         selected = table.selectionModel().selectedRows()
         if not selected:
-            # If no selection, check if they clicked "Add" anyway, maybe use the focused row?
-            # For simplicity, just add the current row if focused
             row = table.currentRow()
             if row >= 0:
-                item_id = table.item(row, 1).data(Qt.ItemDataRole.UserRole)
-                qty = table.cellWidget(row, 2).value()
-                self.add_item_to_order(item_id, qty)
+                item_id = table.item(row, 2).data(Qt.ItemDataRole.UserRole)
+                self.add_item_to_order(item_id, 1)
         else:
             for index in selected:
                 row = index.row()
-                item_id = table.item(row, 1).data(Qt.ItemDataRole.UserRole)
-                qty = table.cellWidget(row, 2).value()
-                self.add_item_to_order(item_id, qty)
+                item_id = table.item(row, 2).data(Qt.ItemDataRole.UserRole)
+                self.add_item_to_order(item_id, 1)
         dialog.accept()
 
     def add_item_to_order(self, item_id: int, quantity: int):
@@ -289,7 +303,9 @@ class POSScreen(QWidget):
             # Quantity as spinbox
             spin = QSpinBox()
             spin.setRange(1, 999)
+            spin.blockSignals(True)
             spin.setValue(item['quantity'])
+            spin.blockSignals(False)
             spin.setProperty('item_id', item['id'])
             spin.valueChanged.connect(lambda val, s=spin: self.on_quantity_changed(s, val))
             self.order_table.setCellWidget(row, 1, spin)
@@ -345,8 +361,7 @@ class POSScreen(QWidget):
             QMessageBox.warning(self, "تنبيه", "لا يمكن إتمام الطلب لعدم وجود شيفت مفتوح.")
             return
 
-        total_text = self.total_label.text().split(": ")[1].split(" ")[0]
-        total = float(total_text)
+        total = sum(item['price'] * item['quantity'] for item in self.current_order)
         
         msg = QMessageBox(self)
         msg.setWindowTitle("تأكيد البيع")

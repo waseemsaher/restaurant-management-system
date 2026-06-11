@@ -21,7 +21,7 @@ class ShiftDetailsDialog(QDialog):
         
         # Load Shift
         shift_data = self.db.execute(
-            """SELECT s.*, e.full_name as emp_name 
+            """SELECT s.*, e.username as emp_name 
                FROM shifts s JOIN employees e ON s.employee_id = e.id 
                WHERE s.id = ?""", (self.shift_id,)
         )
@@ -145,7 +145,7 @@ class ShiftsWindow(QWidget):
         d_to = self.date_to.date().toString("yyyy-MM-dd") + " 23:59:59"
         
         shifts = self.db.execute(
-            """SELECT s.id, s.started_at, s.shift_name, e.full_name as emp_name,
+            """SELECT s.id, s.started_at, s.shift_name, e.username as emp_name,
                       s.total_sales, s.total_orders 
                FROM shifts s 
                JOIN employees e ON s.employee_id = e.id 
