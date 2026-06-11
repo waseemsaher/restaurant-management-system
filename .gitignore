@@ -6,3 +6,21 @@ __pycache__/
 .venv/
 venv/
 .env
+
+# Database
+*.db
+!database/seed.db # If you want to keep a seed db
+
+# Build artifacts
+build/
+dist/
+*.spec
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+.claude/
