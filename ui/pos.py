@@ -126,30 +126,37 @@ class POSScreen(QWidget):
         self.total_label.setStyleSheet("font-size: 22px; font-weight: bold; color: #2c3e50;")
         self.total_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         summary_layout.addWidget(self.total_label)
+
+        checkout_btn = QPushButton("إتمام العملية")
+        checkout_btn.setObjectName("checkout_btn")
+        checkout_btn.setMinimumHeight(50)
+        checkout_btn.setStyleSheet("background: #27ae60; color: white; font-weight: bold; border-radius: 8px;")
+        checkout_btn.clicked.connect(self.checkout)
+
+        clear_btn = QPushButton("إلغاء الطلب")
+        clear_btn.setObjectName("clear_btn")
+        clear_btn.setMinimumHeight(44)
+        clear_btn.clicked.connect(self.clear_order)
+
+        delete_btn = QPushButton("حذف الصنف")
+        delete_btn.setObjectName("delete_btn")
+        delete_btn.setMinimumHeight(44)
+        delete_btn.clicked.connect(self.remove_selected_item)
+
+        summary_layout.addWidget(checkout_btn)
+
+        quick_actions = QHBoxLayout()
+        quick_actions.addWidget(clear_btn)
+        quick_actions.addWidget(delete_btn)
+        summary_layout.addLayout(quick_actions)
         
         right_panel.addWidget(summary_card)
         
         # Actions
         actions_layout = QHBoxLayout()
-        
-        clear_btn = QPushButton("إلغاء")
-        clear_btn.setObjectName("clear_btn")
-        clear_btn.setMinimumHeight(45)
-        clear_btn.clicked.connect(self.clear_order)
-        
-        delete_btn = QPushButton("حذف الصنف")
-        delete_btn.setObjectName("delete_btn")
-        delete_btn.setMinimumHeight(45)
-        delete_btn.clicked.connect(self.remove_selected_item)
-        
-        checkout_btn = QPushButton("إتمام الطلب")
-        checkout_btn.setObjectName("checkout_btn")
-        checkout_btn.setMinimumHeight(45)
-        checkout_btn.clicked.connect(self.checkout)
-        
-        actions_layout.addWidget(clear_btn)
-        actions_layout.addWidget(delete_btn)
-        actions_layout.addWidget(checkout_btn)
+
+        # Keep a compact footer row as a secondary control area.
+        actions_layout.addStretch()
         
         right_panel.addLayout(actions_layout)
         
@@ -330,6 +337,14 @@ class POSScreen(QWidget):
 
     def checkout(self):
         if not self.current_order: return
+        
+        # Check for active shift
+        emp_id = self.user_session['id']
+        active_shift = self.order_manager.db.execute("SELECT id FROM shifts WHERE employee_id = ? AND is_active = 1", (emp_id,))
+        if not active_shift:
+            QMessageBox.warning(self, "تنبيه", "لا يمكن إتمام الطلب لعدم وجود شيفت مفتوح.")
+            return
+
         total_text = self.total_label.text().split(": ")[1].split(" ")[0]
         total = float(total_text)
         

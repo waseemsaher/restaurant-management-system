@@ -8,6 +8,9 @@ from ui.employees import EmployeeManager
 from ui.reports import ReportsScreen
 from ui.settings import SettingsScreen
 from ui.menu import MenuManagerScreen
+from ui.shifts_window import ShiftsWindow
+from ui.returns_window import ReturnsWindow
+from ui.components.shift_dialog import EndShiftDialog
 from database.db import Database
 from utils.config import ConfigManager
 
@@ -74,13 +77,19 @@ class MainWindow(QMainWindow):
         self.inventory_tab = InventoryScreen(self.user_session)
         self.tabs.addTab(self.inventory_tab, "المخزون")
         
-        # Menu and Employees tabs (only for manager/owner)
+        # Menu, Employees, Shifts, Returns tabs (only for manager/owner)
         if self.user_session['role'] in ['manager', 'owner']:
             self.menu_tab = MenuManagerScreen(self.user_session)
             self.tabs.addTab(self.menu_tab, "المنيو")
             
             self.employees_tab = EmployeeManager(self.user_session)
             self.tabs.addTab(self.employees_tab, "الموظفين")
+            
+            self.shifts_tab = ShiftsWindow(self.user_session)
+            self.tabs.addTab(self.shifts_tab, "الشفتات")
+            
+            self.returns_tab = ReturnsWindow(self.user_session)
+            self.tabs.addTab(self.returns_tab, "المرتجعات")
         
         # Reports tab
         self.reports_tab = ReportsScreen(self.user_session)
@@ -152,8 +161,10 @@ class MainWindow(QMainWindow):
             'inventory': 1,
             'menu': 2 if is_admin else -1,
             'employees': 3 if is_admin else -1,
-            'reports': 4 if is_admin else 2,
-            'settings': 5 if is_admin else 3
+            'shifts': 4 if is_admin else -1,
+            'returns': 5 if is_admin else -1,
+            'reports': 6 if is_admin else 2,
+            'settings': 7 if is_admin else 3
         }
         tab_index = tab_index_map.get(tab_name, 0)
         if tab_index != -1:
@@ -168,12 +179,17 @@ class MainWindow(QMainWindow):
     
     def open_shift(self):
         """Open new shift: prompt for shift name and create DB record."""
+        emp_id = self.user_session.get('id')
+        active = self.db.execute("SELECT * FROM shifts WHERE employee_id = ? AND is_active = 1", (emp_id,))
+        if active:
+            QMessageBox.warning(self, "تنبيه", "يوجد شيفت مفتوح بالفعل. يرجى إغلاقه أولاً.")
+            return
+            
         items = ["صباحي", "مسائي"]
         shift_name, ok = QInputDialog.getItem(self, "بدء شيفت جديد", "اختر الشيفت:", items, 0, False)
         if not ok or not shift_name:
             return
 
-        emp_id = self.user_session.get('id')
         try:
             self.db.execute_non_query(
                 "INSERT INTO shifts (employee_id, shift_name, started_at, is_active) VALUES (?, ?, CURRENT_TIMESTAMP, 1)",
@@ -187,7 +203,7 @@ class MainWindow(QMainWindow):
         self.load_current_shift()
     
     def close_shift(self):
-        """Close current active shift: compute totals and update DB."""
+        """Close current active shift: show dialog, compute totals and update DB."""
         emp_id = self.user_session.get('id')
         active = self.db.execute("SELECT * FROM shifts WHERE employee_id = ? AND is_active = 1", (emp_id,))
         if not active:
@@ -195,28 +211,30 @@ class MainWindow(QMainWindow):
             return
 
         shift = active[0]
-        # Calculate totals for this shift
-        totals = self.db.execute(
-            """
-            SELECT 
-                COUNT(*) as total_orders,
-                IFNULL(SUM(total), 0) as total_sales,
-                IFNULL(SUM(CASE WHEN payment_method = 'cash' THEN total ELSE 0 END), 0) as cash_collected
-            FROM orders
-            WHERE shift_id = ? AND status = 'completed'
-            """,
-            (shift['id'],)
+        
+        dialog = EndShiftDialog(
+            shift_id=shift['id'],
+            employee_name=self.user_session['username'],
+            shift_name=shift['shift_name'],
+            start_time=shift['started_at'] or '',
+            parent=self
         )
-        totals = totals[0] if totals else {'total_orders': 0, 'total_sales': 0.0, 'cash_collected': 0.0}
-
-        try:
-            self.db.execute_non_query(
-                "UPDATE shifts SET ended_at = CURRENT_TIMESTAMP, total_sales = ?, total_orders = ?, cash_collected = ?, is_active = 0 WHERE id = ?",
-                (totals['total_sales'], totals['total_orders'], totals['cash_collected'], shift['id'])
-            )
-            QMessageBox.information(self, "تم", f"تم إنهاء الشيفت. إجمالي المبيعات: {totals['total_sales']:.2f} - عدد الأوردرات: {totals['total_orders']}")
-        except Exception as e:
-            QMessageBox.warning(self, "خطأ", f"فشل في إنهاء الشيفت: {e}")
+        
+        if dialog.exec() == QDialog.DialogCode.Accepted:
+            totals = dialog.totals
+            try:
+                self.db.execute_non_query(
+                    "UPDATE shifts SET ended_at = CURRENT_TIMESTAMP, total_sales = ?, total_orders = ?, cash_collected = ?, is_active = 0 WHERE id = ?",
+                    (totals['total_sales'], totals['total_orders'], totals['cash_collected'], shift['id'])
+                )
+                QMessageBox.information(self, "تم", f"تم إنهاء الشيفت بنجاح.")
+                
+                # Refresh shifts tab if available
+                if hasattr(self, 'shifts_tab'):
+                    self.shifts_tab.load_shifts()
+                    
+            except Exception as e:
+                QMessageBox.warning(self, "خطأ", f"فشل في إنهاء الشيفت: {e}")
 
         # Refresh shift info
         self.load_current_shift()
