@@ -1,90 +1,273 @@
+import os
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-                             QTableWidget, QTableWidgetItem, QHeaderView, QGroupBox)
-from PyQt6.QtCore import Qt
+                             QPushButton, QTableWidget, QTableWidgetItem, QHeaderView, 
+                             QGroupBox, QComboBox, QDateEdit, QMessageBox, QTabWidget)
+from PyQt6.QtCore import Qt, QDate
 from database.db import Database
 from datetime import datetime
+from utils.pdf_generator import PDFGenerator
+from utils.excel_generator import ExcelGenerator
 
 class ReportsScreen(QWidget):
     def __init__(self, user_session: dict):
         super().__init__()
         self.user_session = user_session
         self.db = Database()
+        self.current_report_data = None
         self.init_ui()
         self.load_report()
-    
+        
     def init_ui(self):
-        layout = QVBoxLayout()
+        main_layout = QVBoxLayout(self)
         self.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         
-        # Title
-        title = QLabel("التقارير والإحصائيات")
-        title.setStyleSheet("font-size: 16px; font-weight: bold; margin-bottom: 10px;")
-        layout.addWidget(title)
+        self.tabs = QTabWidget()
         
-        # Summary cards
-        summary_layout = QHBoxLayout()
+        # Sales Tab
+        sales_tab = QWidget()
+        sales_layout = QVBoxLayout(sales_tab)
         
-        self.total_sales_card = QGroupBox("إجمالي مبيعات اليوم")
-        card1_layout = QVBoxLayout(self.total_sales_card)
-        self.total_sales_label = QLabel("0.00 ج.م")
-        self.total_sales_label.setStyleSheet("font-size: 20px; color: #27ae60; font-weight: bold;")
-        self.total_sales_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        card1_layout.addWidget(self.total_sales_label)
+        # Date filter
+        filter_layout = QHBoxLayout()
+        filter_layout.addWidget(QLabel("نوع التقرير:"))
+        self.report_type_combo = QComboBox()
+        self.report_type_combo.addItems(["يومي", "أسبوعي", "شهري", "مخصص"])
+        self.report_type_combo.currentIndexChanged.connect(self.on_report_type_changed)
+        filter_layout.addWidget(self.report_type_combo)
         
-        self.total_orders_card = QGroupBox("عدد طلبات اليوم")
-        card2_layout = QVBoxLayout(self.total_orders_card)
-        self.total_orders_label = QLabel("0")
-        self.total_orders_label.setStyleSheet("font-size: 20px; color: #2980b9; font-weight: bold;")
-        self.total_orders_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        card2_layout.addWidget(self.total_orders_label)
+        filter_layout.addWidget(QLabel("من:"))
+        self.date_from = QDateEdit()
+        self.date_from.setCalendarPopup(True)
+        self.date_from.setDate(QDate.currentDate())
+        filter_layout.addWidget(self.date_from)
         
-        summary_layout.addWidget(self.total_sales_card)
-        summary_layout.addWidget(self.total_orders_card)
+        filter_layout.addWidget(QLabel("إلى:"))
+        self.date_to = QDateEdit()
+        self.date_to.setCalendarPopup(True)
+        self.date_to.setDate(QDate.currentDate())
+        filter_layout.addWidget(self.date_to)
         
-        layout.addLayout(summary_layout)
+        btn_show = QPushButton("عرض")
+        btn_show.clicked.connect(self.load_report)
+        filter_layout.addWidget(btn_show)
+        filter_layout.addStretch()
         
-        # Recent orders table
-        orders_group = QGroupBox("أحدث الطلبات")
-        orders_layout = QVBoxLayout(orders_group)
+        sales_layout.addLayout(filter_layout)
         
-        self.orders_table = QTableWidget()
-        self.orders_table.setColumnCount(4)
-        self.orders_table.setHorizontalHeaderLabels(["رقم الطلب", "الوقت", "المبلغ", "طريقة الدفع"])
-        self.orders_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        # Summary
+        summary_group = QGroupBox("📊 ملخص المبيعات")
+        summary_layout_box = QVBoxLayout(summary_group)
+        self.sales_total_lbl = QLabel("إجمالي المبيعات: 0.00 ج.م")
+        self.orders_count_lbl = QLabel("عدد الأوردرات: 0")
+        self.avg_order_lbl = QLabel("متوسط الأوردر: 0.00 ج.م")
+        summary_layout_box.addWidget(self.sales_total_lbl)
+        summary_layout_box.addWidget(self.orders_count_lbl)
+        summary_layout_box.addWidget(self.avg_order_lbl)
+        sales_layout.addWidget(summary_group)
         
-        orders_layout.addWidget(self.orders_table)
-        layout.addWidget(orders_group)
+        # Top items & Categories
+        split_layout = QHBoxLayout()
         
-        self.setLayout(layout)
-    
-    def load_report(self):
-        """Load today's summary and recent orders"""
-        today = datetime.now().strftime("%Y-%m-%d")
+        top_group = QGroupBox("📈 الأصناف الأكثر مبيعاً")
+        top_layout = QVBoxLayout(top_group)
+        self.top_items_table = QTableWidget()
+        self.top_items_table.setColumnCount(3)
+        self.top_items_table.setHorizontalHeaderLabels(["الصنف", "الكمية", "الإجمالي"])
+        self.top_items_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        top_layout.addWidget(self.top_items_table)
+        split_layout.addWidget(top_group)
         
-        # Total sales and count
-        summary = self.db.execute("""
-            SELECT SUM(total_amount) as total_sales, COUNT(*) as order_count 
-            FROM orders 
-            WHERE date(order_time) = date('now', 'localtime') AND is_returned = 0
-        """)
+        cat_group = QGroupBox("مبيعات الأقسام")
+        cat_layout = QVBoxLayout(cat_group)
+        self.cat_sales_table = QTableWidget()
+        self.cat_sales_table.setColumnCount(2)
+        self.cat_sales_table.setHorizontalHeaderLabels(["القسم", "الإجمالي"])
+        self.cat_sales_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        cat_layout.addWidget(self.cat_sales_table)
+        split_layout.addWidget(cat_group)
         
-        if summary and summary[0]['order_count'] > 0:
-            self.total_sales_label.setText(f"{summary[0]['total_sales']:.2f} ج.م")
-            self.total_orders_label.setText(str(summary[0]['order_count']))
+        sales_layout.addLayout(split_layout)
+        
+        # Export buttons
+        export_layout = QHBoxLayout()
+        btn_pdf = QPushButton("تصدير PDF")
+        btn_pdf.clicked.connect(self.export_pdf)
+        btn_excel = QPushButton("تصدير Excel")
+        btn_excel.clicked.connect(self.export_excel)
+        export_layout.addWidget(btn_pdf)
+        export_layout.addWidget(btn_excel)
+        export_layout.addStretch()
+        sales_layout.addLayout(export_layout)
+        
+        self.tabs.addTab(sales_tab, "المبيعات")
+        
+        # Inventory Tab
+        inv_tab = QWidget()
+        inv_layout = QVBoxLayout(inv_tab)
+        
+        inv_summary = QGroupBox("موقف المخزون")
+        inv_sum_layout = QVBoxLayout(inv_summary)
+        self.low_stock_lbl = QLabel("أصناف منخفضة الرصيد: 0")
+        self.low_stock_lbl.setStyleSheet("color: red; font-weight: bold;")
+        inv_sum_layout.addWidget(self.low_stock_lbl)
+        inv_layout.addWidget(inv_summary)
+        
+        self.inv_table = QTableWidget()
+        self.inv_table.setColumnCount(5)
+        self.inv_table.setHorizontalHeaderLabels(["المادة", "الرصيد الحالي", "الوحدة", "الحد الأدنى", "الحالة"])
+        self.inv_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        inv_layout.addWidget(self.inv_table)
+        
+        btn_refresh_inv = QPushButton("تحديث")
+        btn_refresh_inv.clicked.connect(self.load_inventory_report)
+        inv_layout.addWidget(btn_refresh_inv)
+        
+        self.tabs.addTab(inv_tab, "المخزون")
+        
+        main_layout.addWidget(self.tabs)
+        self.on_report_type_changed()
+
+    def on_report_type_changed(self):
+        rt = self.report_type_combo.currentText()
+        today = QDate.currentDate()
+        if rt == "يومي":
+            self.date_from.setDate(today)
+            self.date_to.setDate(today)
+            self.date_from.setEnabled(False)
+            self.date_to.setEnabled(False)
+        elif rt == "أسبوعي":
+            self.date_from.setDate(today.addDays(-7))
+            self.date_to.setDate(today)
+            self.date_from.setEnabled(False)
+            self.date_to.setEnabled(False)
+        elif rt == "شهري":
+            self.date_from.setDate(today.addDays(-30))
+            self.date_to.setDate(today)
+            self.date_from.setEnabled(False)
+            self.date_to.setEnabled(False)
         else:
-            self.total_sales_label.setText("0.00 ج.م")
-            self.total_orders_label.setText("0")
-            
-        # Recent orders
-        orders = self.db.execute("""
-            SELECT * FROM orders 
-            ORDER BY order_time DESC 
-            LIMIT 50
-        """)
+            self.date_from.setEnabled(True)
+            self.date_to.setEnabled(True)
+
+    def load_report(self):
+        d_from = self.date_from.date().toString("yyyy-MM-dd") + " 00:00:00"
+        d_to = self.date_to.date().toString("yyyy-MM-dd") + " 23:59:59"
         
-        self.orders_table.setRowCount(len(orders))
-        for row, order in enumerate(orders):
-            self.orders_table.setItem(row, 0, QTableWidgetItem(str(order['order_number'])))
-            self.orders_table.setItem(row, 1, QTableWidgetItem(order['order_time']))
-            self.orders_table.setItem(row, 2, QTableWidgetItem(f"{order['total_amount']:.2f}"))
-            self.orders_table.setItem(row, 3, QTableWidgetItem(order['payment_method']))
+        totals = self.db.execute(
+            """SELECT 
+               COUNT(*) as total_orders,
+               SUM(total) as total_sales,
+               AVG(total) as avg_order,
+               SUM(CASE WHEN payment_method='cash' THEN total ELSE 0 END) as cash_total
+               FROM orders 
+               WHERE created_at BETWEEN ? AND ? 
+               AND status = 'completed'""",
+            (d_from, d_to)
+        )
+        
+        top_items = self.db.execute(
+            """SELECT i.name, SUM(oi.quantity) as qty, SUM(oi.subtotal) as total
+               FROM order_items oi
+               JOIN menu_items i ON oi.menu_item_id = i.id
+               JOIN orders o ON oi.order_id = o.id
+               WHERE o.created_at BETWEEN ? AND ?
+               AND o.status = 'completed'
+               GROUP BY i.id
+               ORDER BY qty DESC
+               LIMIT 10""",
+            (d_from, d_to)
+        )
+        
+        category_sales = self.db.execute(
+            """SELECT c.name, SUM(oi.subtotal) as total
+               FROM order_items oi
+               JOIN menu_items i ON oi.menu_item_id = i.id
+               JOIN menu_categories c ON i.category_id = c.id
+               JOIN orders o ON oi.order_id = o.id
+               WHERE o.created_at BETWEEN ? AND ?
+               AND o.status = 'completed'
+               GROUP BY c.id""",
+            (d_from, d_to)
+        )
+        
+        if totals and totals[0]['total_orders'] > 0:
+            t = totals[0]
+            ts = t['total_sales'] or 0.0
+            avg = t['avg_order'] or 0.0
+            self.sales_total_lbl.setText(f"إجمالي المبيعات: {ts:.2f} ج.م")
+            self.orders_count_lbl.setText(f"عدد الأوردرات: {t['total_orders']}")
+            self.avg_order_lbl.setText(f"متوسط الأوردر: {avg:.2f} ج.م")
+        else:
+            self.sales_total_lbl.setText("إجمالي المبيعات: 0.00 ج.م")
+            self.orders_count_lbl.setText("عدد الأوردرات: 0")
+            self.avg_order_lbl.setText("متوسط الأوردر: 0.00 ج.م")
+            
+        self.top_items_table.setRowCount(len(top_items))
+        for i, item in enumerate(top_items):
+            self.top_items_table.setItem(i, 0, QTableWidgetItem(item['name']))
+            self.top_items_table.setItem(i, 1, QTableWidgetItem(str(item['qty'])))
+            self.top_items_table.setItem(i, 2, QTableWidgetItem(f"{item['total']:.2f}"))
+            
+        self.cat_sales_table.setRowCount(len(category_sales))
+        for i, cat in enumerate(category_sales):
+            self.cat_sales_table.setItem(i, 0, QTableWidgetItem(cat['name']))
+            self.cat_sales_table.setItem(i, 1, QTableWidgetItem(f"{cat['total']:.2f}"))
+            
+        self.current_report_data = {
+            'totals': totals[0] if totals else {},
+            'top_items': top_items,
+            'category_sales': category_sales
+        }
+        
+        self.load_inventory_report()
+
+    def load_inventory_report(self):
+        items = self.db.execute(
+            """SELECT 
+               name,
+               current_quantity,
+               unit,
+               min_alert_quantity,
+               CASE 
+                 WHEN current_quantity <= min_alert_quantity THEN 'منخفض'
+                 ELSE 'جيد'
+               END as status
+               FROM inventory_items
+               ORDER BY 
+                 CASE WHEN current_quantity <= min_alert_quantity THEN 0 ELSE 1 END,
+                 name"""
+        )
+        
+        low_stock_count = sum(1 for item in items if item['status'] == 'منخفض')
+        self.low_stock_lbl.setText(f"أصناف منخفضة الرصيد: {low_stock_count}")
+        
+        self.inv_table.setRowCount(len(items))
+        for i, item in enumerate(items):
+            self.inv_table.setItem(i, 0, QTableWidgetItem(item['name']))
+            self.inv_table.setItem(i, 1, QTableWidgetItem(str(item['current_quantity'])))
+            self.inv_table.setItem(i, 2, QTableWidgetItem(item['unit']))
+            self.inv_table.setItem(i, 3, QTableWidgetItem(str(item['min_alert_quantity'])))
+            status_item = QTableWidgetItem(item['status'])
+            if item['status'] == 'منخفض':
+                status_item.setForeground(Qt.GlobalColor.red)
+            self.inv_table.setItem(i, 4, status_item)
+
+    def export_pdf(self):
+        if not self.current_report_data: return
+        filename = f"exports/pdf/sales_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        pdf = PDFGenerator({})
+        try:
+            pdf.generate_sales_report(self.current_report_data, filename)
+            QMessageBox.information(self, "نجاح", f"تم حفظ التقرير في: {filename}")
+        except Exception as e:
+            QMessageBox.warning(self, "خطأ", f"فشل التصدير: {e}")
+
+    def export_excel(self):
+        if not self.current_report_data: return
+        filename = f"exports/excel/sales_report_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+        excel = ExcelGenerator({})
+        try:
+            excel.generate_sales_report(self.current_report_data, filename)
+            QMessageBox.information(self, "نجاح", f"تم حفظ التقرير في: {filename}")
+        except Exception as e:
+            QMessageBox.warning(self, "خطأ", f"فشل التصدير: {e}")
