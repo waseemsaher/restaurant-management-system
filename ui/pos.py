@@ -5,6 +5,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
 from PyQt6.QtCore import Qt, QTimer
 from modules.orders import OrderManager
 from modules.inventory import InventoryManager
+from modules.shifts import ShiftsManager
 from ui.components.invoice_dialog import InvoiceDialog
 from datetime import datetime
 import os
@@ -15,6 +16,7 @@ class POSScreen(QWidget):
         self.user_session = user_session
         self.order_manager = OrderManager()
         self.inventory_manager = InventoryManager()
+        self.shifts_manager = ShiftsManager()
         self.current_order = []
         self.order_number = self.order_manager.get_next_order_number()
         self.init_ui()
@@ -330,6 +332,9 @@ class POSScreen(QWidget):
 
     def checkout(self):
         if not self.current_order: return
+        if not self.shifts_manager.get_active_shift(self.user_session["id"]):
+            QMessageBox.warning(self, "الشيفت", "لا يمكن إتمام الطلب بدون شيفت نشط")
+            return
         total_text = self.total_label.text().split(": ")[1].split(" ")[0]
         total = float(total_text)
         
