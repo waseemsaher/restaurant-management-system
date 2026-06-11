@@ -4,6 +4,7 @@ import os
 from datetime import datetime
 import subprocess
 from utils.config import ConfigManager
+from utils.printer import PrinterUtility
 
 class InvoiceDialog(QDialog):
     def __init__(self, parent, order: dict, items: list):
@@ -13,6 +14,8 @@ class InvoiceDialog(QDialog):
         self.setWindowTitle("فاتورة")
         self.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         self.setMinimumSize(420, 480)
+        self.config_manager = ConfigManager()
+        self.printer_util = PrinterUtility(self.config_manager.load_config())
         self.init_ui()
 
     def init_ui(self):
@@ -85,19 +88,20 @@ class InvoiceDialog(QDialog):
         QMessageBox.information(self, "طباعة", "يمكنك طباعة الملف المحفوظ باستخدام أوامر النظام (مثال: lp أو lpr) أو من مدير الملفات.")
 
     def print_direct(self):
-        # Try to save then send to system print command (lp or lpr)
-        filename = self.save_to_file()
-        if not filename:
-            return
-        # try lp then lpr
-        for cmd in ("lp", "lpr"):
-            try:
-                subprocess.run([cmd, filename], check=True)
-                QMessageBox.information(self, "طباعة", "تم إرسال الفاتورة إلى الطابعة.")
+        # Generate image and print
+        self.ensure_receipts_dir()
+        filename = f"receipts/invoice_{self.order.get('id', 'unknown')}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+        try:
+            img_path = self.printer_util.generate_invoice_image(self.order, self.items, filename)
+            # check if printer is enabled in config
+            cfg = self.config_manager.load_config()
+            printer_enabled = cfg.get('printer', {}).get('enabled', False)
+            if not printer_enabled:
+                QMessageBox.information(self, "طباعة", "الطباعة التلقائية معطلة في الإعدادات. تم حفظ صورة الفاتورة.")
                 return
-            except FileNotFoundError:
-                continue
-            except subprocess.CalledProcessError as e:
-                QMessageBox.critical(self, "طباعة", f"فشل الطباعة: {e}")
-                return
-        QMessageBox.information(self, "طباعة", "لم يتم العثور على أوامر الطباعة (lp/lpr). يمكنك طباعة الملف يدوياً.")
+                
+            printer_name = cfg.get('printer', {}).get('default_printer')
+            self.printer_util.print_image(img_path, printer_name)
+            QMessageBox.information(self, "طباعة", "تم إرسال الفاتورة إلى الطابعة.")
+        except Exception as e:
+            QMessageBox.critical(self, "خطأ", f"فشل الطباعة: {e}")
