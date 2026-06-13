@@ -21,6 +21,8 @@ class SettingsScreen(QWidget):
     
     def init_ui(self):
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setSpacing(4)
         self.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         
         self.tabs = QTabWidget()
@@ -100,6 +102,7 @@ class SettingsScreen(QWidget):
         self.bak_table.setColumnCount(4)
         self.bak_table.setHorizontalHeaderLabels(["الاسم", "التاريخ", "الحجم", "إجراءات"])
         self.bak_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.bak_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         bak_inner_layout.addWidget(self.bak_table)
         
         bak_layout.addWidget(bak_group)

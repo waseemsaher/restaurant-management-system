@@ -1,5 +1,5 @@
 from PyQt6.QtWidgets import (QMainWindow, QTabWidget, QWidget, QVBoxLayout, 
-                             QLabel, QMenuBar, QMenu, QMessageBox, QInputDialog)
+                             QLabel, QMenuBar, QMenu, QMessageBox, QInputDialog, QDialog)
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QIcon, QAction
 from ui.pos import POSScreen
@@ -30,7 +30,7 @@ class MainWindow(QMainWindow):
     
     def init_ui(self):
         self.setWindowTitle("نظام إدارة المطاعم")
-        self.setGeometry(100, 100, 1200, 800)
+        self.showMaximized()
         self.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         
         # Central widget with tabs
@@ -38,32 +38,37 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(central_widget)
         
         layout = QVBoxLayout(central_widget)
+        layout.setContentsMargins(4, 2, 4, 2)
+        layout.setSpacing(2)
         
-        # Header / Welcome
+        # Compact Header Bar - everything in one row
+        from PyQt6.QtWidgets import QHBoxLayout
+        header_bar = QHBoxLayout()
+        header_bar.setContentsMargins(4, 2, 4, 2)
+        header_bar.setSpacing(10)
+        
         rest_name = self.config.get('restaurant.name', 'مطعمك')
-        header_text = f"{rest_name}"
-        self.header_label = QLabel(header_text)
-        self.header_label.setStyleSheet("font-size: 18px; font-weight: bold; padding: 6px;")
-        self.header_label.setAlignment(Qt.AlignmentFlag.AlignRight)
-        layout.addWidget(self.header_label)
-
-        # Welcome label with user role
         role_map = {
             'cashier': 'كاشير',
             'manager': 'مدير',
             'owner': 'صاحب'
         }
         display_role = role_map.get(self.user_session['role'], self.user_session['role'])
-        self.welcome_label = QLabel(f"المستخدم: {self.user_session['username']}  |  الصلاحية: {display_role}")
-        self.welcome_label.setStyleSheet("font-size: 14px; font-weight: bold; padding: 6px;")
-        self.welcome_label.setAlignment(Qt.AlignmentFlag.AlignRight)
-        layout.addWidget(self.welcome_label)
-
-        # Shift info label
+        
+        self.header_label = QLabel(f"<b>{rest_name}</b>")
+        self.header_label.setStyleSheet("font-size: 14px; padding: 2px;")
+        header_bar.addWidget(self.header_label)
+        
+        self.welcome_label = QLabel(f"المستخدم: {self.user_session['username']}  |  {display_role}")
+        self.welcome_label.setStyleSheet("font-size: 12px; color: #4b4f56; padding: 2px;")
+        header_bar.addWidget(self.welcome_label)
+        
         self.shift_info_label = QLabel("")
-        self.shift_info_label.setStyleSheet("color: #2c3e50; padding: 4px;")
-        self.shift_info_label.setAlignment(Qt.AlignmentFlag.AlignRight)
-        layout.addWidget(self.shift_info_label)
+        self.shift_info_label.setStyleSheet("font-size: 12px; color: #2c3e50; padding: 2px;")
+        header_bar.addWidget(self.shift_info_label)
+        
+        header_bar.addStretch()
+        layout.addLayout(header_bar)
         
         # Tab widget
         self.tabs = QTabWidget()

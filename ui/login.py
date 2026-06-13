@@ -15,7 +15,8 @@ class LoginScreen(QMainWindow):
     
     def init_ui(self):
         self.setWindowTitle("تسجيل الدخول - نظام إدارة المطاعم")
-        self.setFixedSize(500, 450)
+        self.setMinimumSize(500, 450)
+        self.resize(500, 450)
         
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
@@ -26,7 +27,7 @@ class LoginScreen(QMainWindow):
         # Login card
         self.card = QFrame()
         self.card.setObjectName("login_card")
-        self.card.setFixedSize(350, 350)
+        self.card.setMinimumSize(350, 350)
         card_layout = QVBoxLayout(self.card)
         card_layout.setContentsMargins(30, 30, 30, 30)
         card_layout.setSpacing(15)
