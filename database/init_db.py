@@ -66,6 +66,7 @@ def initialize_database():
             current_quantity REAL DEFAULT 0,
             min_quantity REAL,
             restaurant_id INTEGER,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (restaurant_id) REFERENCES restaurants(id)
         )
     """)
@@ -88,6 +89,7 @@ def initialize_database():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username TEXT NOT NULL UNIQUE,
             password_hash TEXT NOT NULL,
+            full_name TEXT,
             role TEXT NOT NULL, -- 'cashier', 'manager', 'owner'
             is_active BOOLEAN DEFAULT 1,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -99,13 +101,13 @@ def initialize_database():
         CREATE TABLE IF NOT EXISTS shifts (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             employee_id INTEGER NOT NULL,
-            shift_type TEXT NOT NULL, -- 'morning', 'evening', 'night'
-            start_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            end_time TIMESTAMP,
-            opening_balance REAL DEFAULT 0,
-            closing_balance REAL,
+            shift_name TEXT NOT NULL, -- 'صباحي', 'مسائي'
+            started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            ended_at TIMESTAMP,
+            cash_collected REAL DEFAULT 0,
             total_sales REAL DEFAULT 0,
             total_orders INTEGER DEFAULT 0,
+            is_active INTEGER DEFAULT 1,
             FOREIGN KEY (employee_id) REFERENCES employees(id)
         )
     """)
@@ -114,15 +116,18 @@ def initialize_database():
     db.execute("""
         CREATE TABLE IF NOT EXISTS orders (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            order_number INTEGER NOT NULL,
+            order_number TEXT NOT NULL UNIQUE,
             shift_id INTEGER NOT NULL,
             employee_id INTEGER NOT NULL,
+            table_id INTEGER,
+            order_type TEXT DEFAULT 'takeaway',
             total_amount REAL NOT NULL,
             payment_method TEXT DEFAULT 'cash',
             order_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             is_returned BOOLEAN DEFAULT 0,
             FOREIGN KEY (shift_id) REFERENCES shifts(id),
-            FOREIGN KEY (employee_id) REFERENCES employees(id)
+            FOREIGN KEY (employee_id) REFERENCES employees(id),
+            FOREIGN KEY (table_id) REFERENCES tables(id)
         )
     """)
     
@@ -160,6 +165,31 @@ def initialize_database():
             config_value TEXT,
             restaurant_id INTEGER,
             FOREIGN KEY (restaurant_id) REFERENCES restaurants(id)
+        )
+    """)
+
+    # 12. tables
+    db.execute("""
+        CREATE TABLE IF NOT EXISTS tables (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            table_number TEXT UNIQUE NOT NULL,
+            is_occupied INTEGER DEFAULT 0,
+            current_order_id INTEGER,
+            FOREIGN KEY (current_order_id) REFERENCES orders(id)
+        )
+    """)
+    # 13. returns
+    db.execute("""
+        CREATE TABLE IF NOT EXISTS returns (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            order_id INTEGER NOT NULL,
+            employee_id INTEGER NOT NULL,
+            return_type TEXT NOT NULL, -- 'full', 'partial'
+            amount REAL NOT NULL,
+            reason TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (order_id) REFERENCES orders(id),
+            FOREIGN KEY (employee_id) REFERENCES employees(id)
         )
     """)
     
