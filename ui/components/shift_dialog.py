@@ -21,10 +21,10 @@ class EndShiftDialog(QDialog):
         totals = self.db.execute(
             """SELECT 
                COUNT(*) as total_orders,
-               SUM(total) as total_sales,
-               SUM(CASE WHEN payment_method='cash' THEN total ELSE 0 END) as cash_collected
+               SUM(total_amount) as total_sales,
+               SUM(CASE WHEN payment_method='cash' THEN total_amount ELSE 0 END) as cash_collected
                FROM orders 
-               WHERE shift_id = ? AND status = 'completed'""",
+               WHERE shift_id = ? AND is_returned = 0""",
             (shift_id,)
         )
         if not totals or totals[0]['total_orders'] == 0:
@@ -38,7 +38,8 @@ class EndShiftDialog(QDialog):
 
     def init_ui(self):
         self.setWindowTitle("إنهاء الشفت")
-        self.setFixedSize(350, 400)
+        self.setMinimumSize(350, 400)
+        self.resize(350, 400)
         self.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         
         layout = QVBoxLayout(self)

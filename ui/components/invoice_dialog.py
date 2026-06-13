@@ -35,14 +35,13 @@ class InvoiceDialog(QDialog):
         layout.addWidget(self.text)
 
         btn_layout = QHBoxLayout()
-        save_btn = QPushButton("حفظ")
-        save_btn.clicked.connect(self.save_to_file)
-        print_btn = QPushButton("طباعة")
+        print_btn = QPushButton("طباعة الفاتورة")
+        print_btn.setStyleSheet("background-color: #3498db; color: white; font-weight: bold; font-size: 14px; padding: 10px;")
         print_btn.clicked.connect(self.print_direct)
         close_btn = QPushButton("إغلاق")
+        close_btn.setStyleSheet("background-color: #95a5a6; color: white; font-weight: bold; font-size: 14px; padding: 10px;")
         close_btn.clicked.connect(self.accept)
 
-        btn_layout.addWidget(save_btn)
         btn_layout.addWidget(print_btn)
         btn_layout.addWidget(close_btn)
         layout.addLayout(btn_layout)
