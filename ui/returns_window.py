@@ -22,6 +22,8 @@ class ReturnsWindow(QWidget):
     def init_ui(self):
         self.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(4, 4, 4, 4)
+        main_layout.setSpacing(4)
         
         # Tabs
         self.tabs = QTabWidget()
@@ -57,6 +59,7 @@ class ReturnsWindow(QWidget):
         self.items_table.setColumnCount(5)
         self.items_table.setHorizontalHeaderLabels(["الصنف", "الكمية", "السعر", "الإجمالي", "استرجاع"])
         self.items_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.items_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.items_table.itemChanged.connect(self.calculate_refund)
         layout.addWidget(self.items_table)
         
@@ -134,6 +137,7 @@ class ReturnsWindow(QWidget):
             "التاريخ", "رقم الأوردر", "النوع", "المبلغ", "الموظف", "السبب"
         ])
         self.history_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.history_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         layout.addWidget(self.history_table)
         
         self.load_history()
@@ -150,12 +154,12 @@ class ReturnsWindow(QWidget):
             return
             
         order = orders[0]
-        if order['status'] == 'returned':
+        if order['is_returned'] == 1:
             QMessageBox.warning(self, "خطأ", "هذا الأوردر تم استرجاعه بالكامل مسبقاً")
             return
             
         self.current_order = order
-        self.order_info_label.setText(f"📋 الأوردر: {order['order_number']} | التاريخ: {order['created_at']} | الإجمالي: {order['total']:.2f} ج.م")
+        self.order_info_label.setText(f"📋 الأوردر: {order['order_number']} | التاريخ: {order['order_time']} | الإجمالي: {order['total_amount']:.2f} ج.م")
         
         # Load items
         items = self.db.execute(
@@ -242,15 +246,15 @@ class ReturnsWindow(QWidget):
             
             # If full, update order status
             if return_type == 'full':
-                self.db.execute_non_query("UPDATE orders SET status = 'returned' WHERE id = ?", (self.current_order['id'],))
+                self.db.execute_non_query("UPDATE orders SET is_returned = 1 WHERE id = ?", (self.current_order['id'],))
             else:
                 # Deduct total from order for partial
-                new_total = self.current_order['total'] - refund_amount
-                self.db.execute_non_query("UPDATE orders SET total = ? WHERE id = ?", (new_total, self.current_order['id']))
+                new_total = self.current_order['total_amount'] - refund_amount
+                self.db.execute_non_query("UPDATE orders SET total_amount = ? WHERE id = ?", (new_total, self.current_order['id']))
                 # Also we should probably remove the returned items from order_items, but partial handling can be complex.
                 # For now, just mark the order status if they returned everything. 
                 if len(selected_items) == len(self.current_items):
-                    self.db.execute_non_query("UPDATE orders SET status = 'returned' WHERE id = ?", (self.current_order['id'],))
+                    self.db.execute_non_query("UPDATE orders SET is_returned = 1 WHERE id = ?", (self.current_order['id'],))
             
             # Return inventory
             self.return_inventory(selected_items)
@@ -269,7 +273,7 @@ class ReturnsWindow(QWidget):
             for recipe in recipes:
                 return_qty = recipe['quantity'] * item['quantity']
                 self.db.execute_non_query(
-                    "UPDATE inventory SET current_quantity = current_quantity + ? WHERE id = ?",
+                    "UPDATE inventory_items SET current_quantity = current_quantity + ? WHERE id = ?",
                     (return_qty, recipe['inventory_item_id'])
                 )
 

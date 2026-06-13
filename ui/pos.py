@@ -1,7 +1,8 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                              QLineEdit, QPushButton, QTableWidget, 
                              QTableWidgetItem, QHeaderView, QMessageBox,
-                             QComboBox, QGroupBox, QSpinBox, QDialog, QDialogButtonBox, QFrame, QGridLayout, QScrollArea)
+                             QComboBox, QGroupBox, QSpinBox, QDialog, QDialogButtonBox, QFrame, QGridLayout, QScrollArea,
+                             QSplitter)
 from PyQt6.QtCore import Qt, QTimer
 from modules.orders import OrderManager
 from modules.inventory import InventoryManager
@@ -23,83 +24,120 @@ class POSScreen(QWidget):
     
     def init_ui(self):
         main_layout = QHBoxLayout(self)
+        main_layout.setContentsMargins(4, 4, 4, 4)
+        main_layout.setSpacing(6)
         self.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         
-        # Left Side: Category and Item Selection
+        # Left Side: Splitter layout (like inventory/menu)
         left_panel = QVBoxLayout()
+        left_panel.setSpacing(4)
         
-        # Search Box
+        # Search Box (above splitter)
         search_card = QFrame()
         search_card.setObjectName("search_card")
-        search_card.setStyleSheet("background: white; border-radius: 10px; padding: 10px;")
+        search_card.setStyleSheet("background: white; border-radius: 8px; padding: 4px;")
         search_layout = QHBoxLayout(search_card)
+        search_layout.setContentsMargins(6, 4, 6, 4)
         
         self.search_input = QLineEdit()
         self.search_input.setPlaceholderText("ابحث عن صنف أو كود...")
-        self.search_input.setMinimumHeight(40)
+        self.search_input.setMinimumHeight(32)
         
         search_btn = QPushButton("بحث")
-        search_btn.setMinimumHeight(40)
+        search_btn.setMinimumHeight(32)
         search_btn.clicked.connect(self.search_items)
         
         search_layout.addWidget(self.search_input)
         search_layout.addWidget(search_btn)
         left_panel.addWidget(search_card)
         
-        # Categories
+        # Horizontal splitter: categories | items
+        content_splitter = QSplitter(Qt.Orientation.Horizontal)
+        
+        # Categories side
+        cat_widget = QWidget()
+        cat_main_layout = QVBoxLayout(cat_widget)
+        cat_main_layout.setContentsMargins(0, 0, 0, 0)
+        cat_main_layout.setSpacing(4)
+        
         categories_group = QGroupBox("الأقسام")
-        categories_layout = QGridLayout(categories_group)
-        categories_layout.setSpacing(10)
+        categories_layout = QVBoxLayout(categories_group)
+        categories_layout.setSpacing(6)
+        categories_layout.setContentsMargins(8, 8, 8, 8)
         
         categories = self.order_manager.get_categories()
-        row, col = 0, 0
         for category in categories:
             btn = QPushButton(category['name'])
-            btn.setMinimumHeight(50)
+            btn.setMinimumHeight(40)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #ffffff;
+                    color: #2c3e50;
+                    border: 2px solid #3498db;
+                    border-radius: 8px;
+                    font-weight: bold;
+                    font-size: 13px;
+                }
+                QPushButton:hover {
+                    background-color: #3498db;
+                    color: white;
+                }
+            """)
             btn.clicked.connect(self.category_button_clicked)
             btn.setProperty("category_id", category['id'])
-            categories_layout.addWidget(btn, row, col)
-            col += 1
-            if col > 3:
-                col = 0
-                row += 1
+            categories_layout.addWidget(btn)
         
-        left_panel.addWidget(categories_group)
+        categories_layout.addStretch()
+        cat_main_layout.addWidget(categories_group)
+        content_splitter.addWidget(cat_widget)
         
-        # Items area: will show item buttons for selected category
-        self.items_group = QGroupBox("الأصناف")
+        # Items side
+        items_widget = QWidget()
+        items_main_layout = QVBoxLayout(items_widget)
+        items_main_layout.setContentsMargins(0, 0, 0, 0)
+        items_main_layout.setSpacing(4)
+        
+        items_group = QGroupBox("الأصناف")
+        items_inner_layout = QVBoxLayout(items_group)
+        items_inner_layout.setContentsMargins(4, 4, 4, 4)
+        
         self.items_layout = QGridLayout()
-        self.items_layout.setSpacing(8)
+        self.items_layout.setSpacing(6)
         
-        # Scroll area for items if they are many
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         items_container = QWidget()
         items_container.setLayout(self.items_layout)
         scroll.setWidget(items_container)
-        scroll.setMinimumHeight(300)
         
-        left_panel.addWidget(scroll)
+        items_inner_layout.addWidget(scroll)
+        items_main_layout.addWidget(items_group)
+        content_splitter.addWidget(items_widget)
         
-        # Recent Items / Quick Actions (Optional placeholder)
-        left_panel.addStretch()
+        content_splitter.setStretchFactor(0, 1)
+        content_splitter.setStretchFactor(1, 2)
+        
+        left_panel.addWidget(content_splitter, 1)
         
         main_layout.addLayout(left_panel, 2)
         
         # Right Side: Order Summary and Checkout
         right_panel = QVBoxLayout()
+        right_panel.setSpacing(4)
         
         # Order Header
         order_header = QFrame()
-        order_header.setStyleSheet("background: #2c3e50; color: white; border-radius: 8px;")
+        order_header.setStyleSheet("background: #2c3e50; color: white; border-radius: 6px; padding: 4px;")
         header_layout = QVBoxLayout(order_header)
+        header_layout.setContentsMargins(8, 4, 8, 4)
+        header_layout.setSpacing(2)
         
         self.order_label = QLabel(f"رقم الطلب: {self.order_number}")
-        self.order_label.setStyleSheet("font-size: 16px; font-weight: bold; color: white;")
+        self.order_label.setStyleSheet("font-size: 14px; font-weight: bold; color: white;")
         
         self.datetime_label = QLabel("")
-        self.datetime_label.setStyleSheet("font-size: 12px; color: #bdc3c7;")
+        self.datetime_label.setStyleSheet("font-size: 11px; color: #bdc3c7;")
         
         header_layout.addWidget(self.order_label)
         header_layout.addWidget(self.datetime_label)
@@ -121,57 +159,68 @@ class POSScreen(QWidget):
             header_layout.addWidget(self.table_combo)
         right_panel.addWidget(order_header)
         
-        # Order Table
+        # Order Table - now with 5 columns: name, qty, price, total, remove
         self.order_table = QTableWidget()
-        self.order_table.setColumnCount(4)
-        self.order_table.setHorizontalHeaderLabels(["الصنف", "الكمية", "السعر", "الإجمالي"])
-        self.order_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.order_table.setColumnCount(5)
+        self.order_table.setHorizontalHeaderLabels(["الصنف", "الكمية", "السعر", "الإجمالي", "✕"])
+        header = self.order_table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Fixed)
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
+        header.resizeSection(1, 110)
+        header.resizeSection(2, 70)
+        header.resizeSection(3, 80)
+        header.resizeSection(4, 40)
         self.order_table.verticalHeader().setVisible(False)
         self.order_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
-        right_panel.addWidget(self.order_table)
+        self.order_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        right_panel.addWidget(self.order_table, 1)
         
         # Summary
         summary_card = QFrame()
-        summary_card.setStyleSheet("background: #ecf0f1; border-radius: 8px; padding: 10px;")
+        summary_card.setStyleSheet("background: #ecf0f1; border-radius: 6px; padding: 6px;")
         summary_layout = QVBoxLayout(summary_card)
+        summary_layout.setContentsMargins(8, 6, 8, 6)
+        summary_layout.setSpacing(4)
         
         self.total_label = QLabel("الإجمالي: 0.00 ج.م")
-        self.total_label.setStyleSheet("font-size: 22px; font-weight: bold; color: #2c3e50;")
+        self.total_label.setStyleSheet("font-size: 18px; font-weight: bold; color: #2c3e50;")
         self.total_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         summary_layout.addWidget(self.total_label)
 
         checkout_btn = QPushButton("إتمام العملية")
         checkout_btn.setObjectName("checkout_btn")
-        checkout_btn.setMinimumHeight(50)
-        checkout_btn.setStyleSheet("background: #27ae60; color: white; font-weight: bold; border-radius: 8px;")
+        checkout_btn.setMinimumHeight(40)
+        checkout_btn.setStyleSheet("background: #27ae60; color: white; font-weight: bold; border-radius: 6px; font-size: 15px;")
         checkout_btn.clicked.connect(self.checkout)
 
         clear_btn = QPushButton("إلغاء الطلب")
         clear_btn.setObjectName("clear_btn")
-        clear_btn.setMinimumHeight(44)
+        clear_btn.setMinimumHeight(34)
+        clear_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        clear_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #fde8e8;
+                color: #c0392b;
+                border: 1px solid #f5c6cb;
+                border-radius: 6px;
+                font-weight: bold;
+                font-size: 13px;
+            }
+            QPushButton:hover {
+                background-color: #e74c3c;
+                color: white;
+                border: 1px solid #e74c3c;
+            }
+        """)
         clear_btn.clicked.connect(self.clear_order)
 
-        delete_btn = QPushButton("حذف الصنف")
-        delete_btn.setObjectName("delete_btn")
-        delete_btn.setMinimumHeight(44)
-        delete_btn.clicked.connect(self.remove_selected_item)
-
         summary_layout.addWidget(checkout_btn)
-
-        quick_actions = QHBoxLayout()
-        quick_actions.addWidget(clear_btn)
-        quick_actions.addWidget(delete_btn)
-        summary_layout.addLayout(quick_actions)
+        summary_layout.addWidget(clear_btn)
         
         right_panel.addWidget(summary_card)
-        
-        # Actions
-        actions_layout = QHBoxLayout()
-
-        # Keep a compact footer row as a secondary control area.
-        actions_layout.addStretch()
-        
-        right_panel.addLayout(actions_layout)
         
         main_layout.addLayout(right_panel, 1)
 
@@ -196,42 +245,37 @@ class POSScreen(QWidget):
             QMessageBox.information(self, "بحث", "لم يتم العثور على أصناف")
             return
         
-        dialog = QDialog(self)
-        dialog.setWindowTitle("نتائج البحث")
-        dialog.setFixedSize(450, 400)
-        dialog.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
-        layout = QVBoxLayout(dialog)
-        
-        table = QTableWidget()
-        table.setColumnCount(3)
-        table.setHorizontalHeaderLabels(["الصنف", "القسم", "السعر"])
-        table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        
-        for item in items:
-            row = table.rowCount()
-            table.insertRow(row)
-            table.setItem(row, 0, QTableWidgetItem(item['name']))
-            table.setItem(row, 1, QTableWidgetItem(item['category_name']))
-            table.setItem(row, 2, QTableWidgetItem(f"{item['price']:.2f}"))
-            table.item(row, 2).setData(Qt.ItemDataRole.UserRole, item['id'])
-        
-        layout.addWidget(table)
-        
-        btn_layout = QHBoxLayout()
-        add_btn = QPushButton("إضافة للطلب")
-        add_btn.clicked.connect(lambda: self.add_from_dialog(table, dialog))
-        btn_layout.addWidget(add_btn)
-        layout.addLayout(btn_layout)
-        
-        dialog.exec()
+        # clear existing widgets
+        for i in reversed(range(self.items_layout.count())):
+            item = self.items_layout.itemAt(i)
+            if item.widget():
+                item.widget().setParent(None)
 
-    def add_from_dialog(self, table, dialog):
-        selected = table.selectionModel().selectedRows()
-        if selected:
-            row = selected[0].row()
-            item_id = table.item(row, 2).data(Qt.ItemDataRole.UserRole)
-            self.add_item_to_order(item_id, 1)
-            dialog.accept()
+        row, col = 0, 0
+        for item in items:
+            btn = QPushButton(f"{item['name']}\n{item['price']:.2f} ج.م")
+            btn.setMinimumSize(100, 50)
+            btn.setProperty('item_id', item['id'])
+            btn.clicked.connect(lambda _, bid=item['id']: self.add_item_to_order(bid, 1))
+            btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #f8f9fa;
+                    color: #2c3e50;
+                    border: 1px solid #bdc3c7;
+                    border-radius: 6px;
+                    font-weight: bold;
+                    font-size: 12px;
+                }
+                QPushButton:hover {
+                    background-color: #e9ecef;
+                    border: 1px solid #3498db;
+                }
+            """)
+            self.items_layout.addWidget(btn, row, col)
+            col += 1
+            if col > 3:
+                col = 0
+                row += 1
 
     def category_button_clicked(self):
         sender = self.sender()
@@ -247,9 +291,23 @@ class POSScreen(QWidget):
         row, col = 0, 0
         for item in items:
             btn = QPushButton(f"{item['name']}\n{item['price']:.2f} ج.م")
-            btn.setMinimumSize(120, 60)
+            btn.setMinimumSize(100, 50)
             btn.setProperty('item_id', item['id'])
             btn.clicked.connect(lambda _, bid=item['id']: self.add_item_to_order(bid, 1))
+            btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #f8f9fa;
+                    color: #2c3e50;
+                    border: 1px solid #bdc3c7;
+                    border-radius: 6px;
+                    font-weight: bold;
+                    font-size: 12px;
+                }
+                QPushButton:hover {
+                    background-color: #e9ecef;
+                    border: 1px solid #3498db;
+                }
+            """)
             self.items_layout.addWidget(btn, row, col)
             col += 1
             if col > 3:
@@ -300,27 +358,105 @@ class POSScreen(QWidget):
         total = 0
         for row, item in enumerate(self.current_order):
             self.order_table.setItem(row, 0, QTableWidgetItem(item['name']))
-            # Quantity as spinbox
-            spin = QSpinBox()
-            spin.setRange(1, 999)
-            spin.blockSignals(True)
-            spin.setValue(item['quantity'])
-            spin.blockSignals(False)
-            spin.setProperty('item_id', item['id'])
-            spin.valueChanged.connect(lambda val, s=spin: self.on_quantity_changed(s, val))
-            self.order_table.setCellWidget(row, 1, spin)
+            quantity = item['quantity']
+
+            # --- Quantity widget: [+] qty [-] centered ---
+            spin_container = QWidget()
+            spin_container.setStyleSheet("background: transparent;")
+            spin_layout = QHBoxLayout(spin_container)
+            spin_layout.setContentsMargins(6, 4, 6, 4)
+            spin_layout.setSpacing(4)
+            spin_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+            btn_plus = QPushButton("+")
+            btn_plus.setFixedSize(28, 28)
+            btn_plus.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn_plus.setStyleSheet("""
+                QPushButton {
+                    background-color: #d5f5e3; color: #1e8449;
+                    font-weight: bold; border-radius: 14px;
+                    font-size: 16px; border: none; padding: 0px;
+                }
+                QPushButton:hover { background-color: #27ae60; color: white; }
+            """)
+            btn_plus.clicked.connect(lambda c, bid=item['id'], q=quantity: self.on_quantity_changed_custom(bid, q + 1))
+
+            lbl_qty = QLabel(str(quantity))
+            lbl_qty.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            lbl_qty.setFixedSize(32, 26)
+            lbl_qty.setStyleSheet("""
+                background-color: #eaf2f8; color: #2c3e50;
+                font-weight: bold; font-size: 14px;
+                border-radius: 6px; padding: 0px;
+            """)
+
+            btn_minus = QPushButton("−")
+            btn_minus.setFixedSize(28, 28)
+            btn_minus.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn_minus.setStyleSheet("""
+                QPushButton {
+                    background-color: #fadbd8; color: #c0392b;
+                    font-weight: bold; border-radius: 14px;
+                    font-size: 16px; border: none; padding: 0px;
+                }
+                QPushButton:hover { background-color: #e74c3c; color: white; }
+            """)
+            btn_minus.clicked.connect(lambda c, bid=item['id'], q=quantity: self.on_quantity_changed_custom(bid, q - 1))
+
+            spin_layout.addWidget(btn_plus)
+            spin_layout.addWidget(lbl_qty)
+            spin_layout.addWidget(btn_minus)
+
+            self.order_table.setCellWidget(row, 1, spin_container)
             self.order_table.setItem(row, 2, QTableWidgetItem(f"{item['price']:.2f}"))
             item_total = item['price'] * item['quantity']
             self.order_table.setItem(row, 3, QTableWidgetItem(f"{item_total:.2f}"))
+
+            # --- Remove button: subtle, transparent, icon only ---
+            rm_container = QWidget()
+            rm_container.setStyleSheet("background: transparent;")
+            rm_layout = QHBoxLayout(rm_container)
+            rm_layout.setContentsMargins(0, 0, 0, 0)
+            rm_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+            remove_btn = QPushButton("✕")
+            remove_btn.setFixedSize(28, 28)
+            remove_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            remove_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: transparent;
+                    color: #bdc3c7; 
+                    font-size: 15px; font-weight: bold;
+                    border: none; border-radius: 14px;
+                    padding: 0px;
+                }
+                QPushButton:hover {
+                    background-color: #fadbd8;
+                    color: #e74c3c;
+                }
+            """)
+            remove_btn.clicked.connect(lambda c, bid=item['id']: self.remove_item_by_id(bid))
+            rm_layout.addWidget(remove_btn)
+            self.order_table.setCellWidget(row, 4, rm_container)
+
             total += item_total
+
+        for r in range(len(self.current_order)):
+            self.order_table.setRowHeight(r, 40)
         self.total_label.setText(f"الإجمالي: {total:.2f} ج.م")
 
-    def on_quantity_changed(self, spinbox, value):
-        item_id = spinbox.property('item_id')
+    def on_quantity_changed_custom(self, item_id, value):
+        if value < 1:
+            value = 1
         for i, it in enumerate(self.current_order):
             if it['id'] == item_id:
                 self.current_order[i]['quantity'] = value
                 break
+        self.update_order_table()
+
+    def remove_item_by_id(self, item_id):
+        """Remove item from order by its id - no confirmation needed for quick POS flow."""
+        self.current_order = [it for it in self.current_order if it['id'] != item_id]
         self.update_order_table()
 
     def remove_selected_item(self):
@@ -328,16 +464,9 @@ class POSScreen(QWidget):
         if row < 0:
             QMessageBox.information(self, "حذف", "اختر صف لحذفه")
             return
-        # confirm
-        reply = QMessageBox.question(self, 'تأكيد', 'هل تريد حذف الصنف المحدد؟', QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-        if reply != QMessageBox.StandardButton.Yes:
-            return
-        # determine item id from spinbox in that row
-        widget = self.order_table.cellWidget(row, 1)
-        if widget:
-            item_id = widget.property('item_id')
-            self.current_order = [it for it in self.current_order if it['id'] != item_id]
-            self.update_order_table()
+        if row < len(self.current_order):
+            item_id = self.current_order[row]['id']
+            self.remove_item_by_id(item_id)
 
     def clear_order(self):
         if not self.current_order: return
@@ -392,7 +521,6 @@ class POSScreen(QWidget):
             self.update_order_table()
             self.order_number = self.order_manager.get_next_order_number()
             self.update_order_number()
-            QMessageBox.information(self, "نجاح", "تم إتمام الطلب بنجاح")
 
     def generate_receipt(self, order_id):
         order = self.order_manager.get_order(order_id)

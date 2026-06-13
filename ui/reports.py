@@ -19,6 +19,8 @@ class ReportsScreen(QWidget):
         
     def init_ui(self):
         main_layout = QVBoxLayout(self)
+        main_layout.setContentsMargins(4, 4, 4, 4)
+        main_layout.setSpacing(4)
         self.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         
         self.tabs = QTabWidget()
@@ -26,6 +28,8 @@ class ReportsScreen(QWidget):
         # Sales Tab
         sales_tab = QWidget()
         sales_layout = QVBoxLayout(sales_tab)
+        sales_layout.setContentsMargins(4, 4, 4, 4)
+        sales_layout.setSpacing(4)
         
         # Date filter
         filter_layout = QHBoxLayout()
@@ -56,8 +60,10 @@ class ReportsScreen(QWidget):
         
         # Summary
         summary_group = QGroupBox("📊 ملخص المبيعات")
-        summary_layout_box = QVBoxLayout(summary_group)
+        summary_layout_box = QHBoxLayout(summary_group)
+        summary_layout_box.setContentsMargins(6, 4, 6, 4)
         self.sales_total_lbl = QLabel("إجمالي المبيعات: 0.00 ج.م")
+        self.sales_total_lbl.setStyleSheet("font-weight: bold;")
         self.orders_count_lbl = QLabel("عدد الأوردرات: 0")
         self.avg_order_lbl = QLabel("متوسط الأوردر: 0.00 ج.م")
         summary_layout_box.addWidget(self.sales_total_lbl)
@@ -74,6 +80,7 @@ class ReportsScreen(QWidget):
         self.top_items_table.setColumnCount(3)
         self.top_items_table.setHorizontalHeaderLabels(["الصنف", "الكمية", "الإجمالي"])
         self.top_items_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.top_items_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         top_layout.addWidget(self.top_items_table)
         split_layout.addWidget(top_group)
         
@@ -83,6 +90,7 @@ class ReportsScreen(QWidget):
         self.cat_sales_table.setColumnCount(2)
         self.cat_sales_table.setHorizontalHeaderLabels(["القسم", "الإجمالي"])
         self.cat_sales_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.cat_sales_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         cat_layout.addWidget(self.cat_sales_table)
         split_layout.addWidget(cat_group)
         
@@ -104,6 +112,8 @@ class ReportsScreen(QWidget):
         # Inventory Tab
         inv_tab = QWidget()
         inv_layout = QVBoxLayout(inv_tab)
+        inv_layout.setContentsMargins(4, 4, 4, 4)
+        inv_layout.setSpacing(4)
         
         inv_summary = QGroupBox("موقف المخزون")
         inv_sum_layout = QVBoxLayout(inv_summary)
@@ -116,6 +126,7 @@ class ReportsScreen(QWidget):
         self.inv_table.setColumnCount(5)
         self.inv_table.setHorizontalHeaderLabels(["المادة", "الرصيد الحالي", "الوحدة", "الحد الأدنى", "الحالة"])
         self.inv_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.inv_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         inv_layout.addWidget(self.inv_table)
         
         btn_refresh_inv = QPushButton("تحديث")
@@ -156,22 +167,22 @@ class ReportsScreen(QWidget):
         totals = self.db.execute(
             """SELECT 
                COUNT(*) as total_orders,
-               SUM(total) as total_sales,
-               AVG(total) as avg_order,
-               SUM(CASE WHEN payment_method='cash' THEN total ELSE 0 END) as cash_total
+               SUM(total_amount) as total_sales,
+               AVG(total_amount) as avg_order,
+               SUM(CASE WHEN payment_method='cash' THEN total_amount ELSE 0 END) as cash_total
                FROM orders 
-               WHERE created_at BETWEEN ? AND ? 
-               AND status = 'completed'""",
+               WHERE order_time BETWEEN ? AND ? 
+               AND is_returned = 0""",
             (d_from, d_to)
         )
         
         top_items = self.db.execute(
-            """SELECT i.name, SUM(oi.quantity) as qty, SUM(oi.subtotal) as total
+            """SELECT i.name, SUM(oi.quantity) as qty, SUM(oi.price_at_time * oi.quantity) as total
                FROM order_items oi
                JOIN menu_items i ON oi.menu_item_id = i.id
                JOIN orders o ON oi.order_id = o.id
-               WHERE o.created_at BETWEEN ? AND ?
-               AND o.status = 'completed'
+               WHERE o.order_time BETWEEN ? AND ?
+               AND o.is_returned = 0
                GROUP BY i.id
                ORDER BY qty DESC
                LIMIT 10""",
@@ -179,13 +190,13 @@ class ReportsScreen(QWidget):
         )
         
         category_sales = self.db.execute(
-            """SELECT c.name, SUM(oi.subtotal) as total
+            """SELECT c.name, SUM(oi.price_at_time * oi.quantity) as total
                FROM order_items oi
                JOIN menu_items i ON oi.menu_item_id = i.id
                JOIN menu_categories c ON i.category_id = c.id
                JOIN orders o ON oi.order_id = o.id
-               WHERE o.created_at BETWEEN ? AND ?
-               AND o.status = 'completed'
+               WHERE o.order_time BETWEEN ? AND ?
+               AND o.is_returned = 0
                GROUP BY c.id""",
             (d_from, d_to)
         )
@@ -227,14 +238,14 @@ class ReportsScreen(QWidget):
                name,
                current_quantity,
                unit,
-               min_alert_quantity,
+               min_quantity,
                CASE 
-                 WHEN current_quantity <= min_alert_quantity THEN 'منخفض'
+                 WHEN current_quantity <= min_quantity THEN 'منخفض'
                  ELSE 'جيد'
                END as status
                FROM inventory_items
                ORDER BY 
-                 CASE WHEN current_quantity <= min_alert_quantity THEN 0 ELSE 1 END,
+                 CASE WHEN current_quantity <= min_quantity THEN 0 ELSE 1 END,
                  name"""
         )
         
@@ -246,7 +257,7 @@ class ReportsScreen(QWidget):
             self.inv_table.setItem(i, 0, QTableWidgetItem(item['name']))
             self.inv_table.setItem(i, 1, QTableWidgetItem(str(item['current_quantity'])))
             self.inv_table.setItem(i, 2, QTableWidgetItem(item['unit']))
-            self.inv_table.setItem(i, 3, QTableWidgetItem(str(item['min_alert_quantity'])))
+            self.inv_table.setItem(i, 3, QTableWidgetItem(str(item['min_quantity'])))
             status_item = QTableWidgetItem(item['status'])
             if item['status'] == 'منخفض':
                 status_item.setForeground(Qt.GlobalColor.red)
