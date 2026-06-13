@@ -2,7 +2,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QLineEdit, QPushButton, QTableWidget, 
                              QTableWidgetItem, QHeaderView, QMessageBox,
                              QComboBox, QGroupBox, QFileDialog, QInputDialog,
-                             QDialog)
+                             QDialog, QSplitter, QScrollArea)
 from PyQt6.QtCore import Qt
 from modules.menu import MenuManager
 
@@ -16,35 +16,49 @@ class MenuManagerScreen(QWidget):
         self.load_items()
     
     def init_ui(self):
-        layout = QVBoxLayout()
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setSpacing(4)
+        self.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         
         # Title
         title = QLabel("إدارة القائمة (المنيو)")
-        title.setStyleSheet("font-size: 16px; font-weight: bold; margin-bottom: 10px;")
+        title.setStyleSheet("font-size: 14px; font-weight: bold; margin-bottom: 4px;")
         layout.addWidget(title)
         
+        # Horizontal splitter: categories on right, items on left
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        
         # Categories section
+        cat_widget = QWidget()
+        cat_main_layout = QVBoxLayout(cat_widget)
+        cat_main_layout.setContentsMargins(0, 0, 0, 0)
+        cat_main_layout.setSpacing(4)
+        
         categories_group = QGroupBox("الأقسام")
         categories_layout = QVBoxLayout(categories_group)
+        categories_layout.setSpacing(3)
+        categories_layout.setContentsMargins(8, 8, 8, 8)
         
+        add_cat_row = QHBoxLayout()
         self.category_name_input = QLineEdit()
-        self.category_name_input.setPlaceholderText("اسم القسم (مثال: كريبات)")
-        
-        add_category_btn = QPushButton("إضافة قسم")
+        self.category_name_input.setPlaceholderText("اسم القسم")
+        add_category_btn = QPushButton("إضافة")
         add_category_btn.clicked.connect(self.add_category)
-        
-        categories_layout.addWidget(QLabel("اسم القسم:"))
-        categories_layout.addWidget(self.category_name_input)
-        categories_layout.addWidget(add_category_btn)
+        add_cat_row.addWidget(self.category_name_input)
+        add_cat_row.addWidget(add_category_btn)
+        categories_layout.addLayout(add_cat_row)
         
         self.categories_table = QTableWidget()
         self.categories_table.setColumnCount(2)
         self.categories_table.setHorizontalHeaderLabels(["القسم", "الحالة"])
         self.categories_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.categories_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         categories_layout.addWidget(self.categories_table)
+        
         # Category action buttons
         cat_actions = QHBoxLayout()
-        self.edit_category_btn = QPushButton("تعديل القسم")
+        self.edit_category_btn = QPushButton("تعديل")
         self.edit_category_btn.clicked.connect(self.edit_category)
         self.toggle_category_btn = QPushButton("تفعيل/تعطيل")
         self.toggle_category_btn.clicked.connect(self.toggle_category)
@@ -52,66 +66,76 @@ class MenuManagerScreen(QWidget):
         cat_actions.addWidget(self.toggle_category_btn)
         categories_layout.addLayout(cat_actions)
         
-        layout.addWidget(categories_group)
+        cat_main_layout.addWidget(categories_group)
+        splitter.addWidget(cat_widget)
         
         # Items section
+        items_widget = QWidget()
+        items_main_layout = QVBoxLayout(items_widget)
+        items_main_layout.setContentsMargins(0, 0, 0, 0)
+        items_main_layout.setSpacing(4)
+        
         items_group = QGroupBox("الأصناف")
         items_layout = QVBoxLayout(items_group)
+        items_layout.setSpacing(3)
+        items_layout.setContentsMargins(8, 8, 8, 8)
         
-        # Item form
-        form_layout = QVBoxLayout()
-        
+        # Item form - compact rows
+        form_row1 = QHBoxLayout()
         self.item_name_input = QLineEdit()
-        self.item_name_input.setPlaceholderText("اسم الصنف (مثال: كريب شيش طاووق)")
-        
+        self.item_name_input.setPlaceholderText("اسم الصنف")
         self.item_price_input = QLineEdit()
         self.item_price_input.setPlaceholderText("السعر")
-        
+        self.item_price_input.setMaximumWidth(100)
         self.category_combo = QComboBox()
         self.category_combo.addItem("اختر القسم")
-        form_layout.addWidget(QLabel("اسم الصنف:"))
-        form_layout.addWidget(self.item_name_input)
-        form_layout.addWidget(QLabel("السعر:"))
-        form_layout.addWidget(self.item_price_input)
-        form_layout.addWidget(QLabel("القسم:"))
-        form_layout.addWidget(self.category_combo)
-        # Image chooser
-        img_choose_layout = QHBoxLayout()
-        self.image_path_label = QLabel("")
-        choose_img_btn = QPushButton("اختر صورة")
-        choose_img_btn.clicked.connect(self.choose_image)
-        img_choose_layout.addWidget(choose_img_btn)
-        img_choose_layout.addWidget(self.image_path_label)
-        form_layout.addLayout(img_choose_layout)
+        form_row1.addWidget(self.item_name_input)
+        form_row1.addWidget(self.item_price_input)
+        form_row1.addWidget(self.category_combo)
+        items_layout.addLayout(form_row1)
         
+        form_row2 = QHBoxLayout()
+        # Image chooser
+        self.image_path_label = QLabel("")
+        self.image_path_label.setStyleSheet("color: #7f8c8d; font-size: 11px;")
+        choose_img_btn = QPushButton("صورة")
+        choose_img_btn.clicked.connect(self.choose_image)
+        choose_img_btn.setMaximumWidth(60)
         add_item_btn = QPushButton("إضافة صنف")
         add_item_btn.clicked.connect(self.add_item)
-        form_layout.addWidget(add_item_btn)
+        form_row2.addWidget(choose_img_btn)
+        form_row2.addWidget(self.image_path_label, 1)
+        form_row2.addWidget(add_item_btn)
+        items_layout.addLayout(form_row2)
+        
         # Item action buttons
         item_actions = QHBoxLayout()
-        self.edit_item_btn = QPushButton("تعديل الصنف")
+        self.edit_item_btn = QPushButton("تعديل")
         self.edit_item_btn.clicked.connect(self.edit_item)
-        self.toggle_item_btn = QPushButton("تفعيل/تعطيل الصنف")
+        self.toggle_item_btn = QPushButton("تفعيل/تعطيل")
         self.toggle_item_btn.clicked.connect(self.toggle_item)
-        self.manage_recipes_btn = QPushButton("إدارة الوصفة")
+        self.manage_recipes_btn = QPushButton("الوصفة")
         self.manage_recipes_btn.clicked.connect(self.manage_recipes)
         item_actions.addWidget(self.edit_item_btn)
         item_actions.addWidget(self.toggle_item_btn)
         item_actions.addWidget(self.manage_recipes_btn)
-        form_layout.addLayout(item_actions)
-        
-        items_layout.addLayout(form_layout)
+        items_layout.addLayout(item_actions)
         
         # Items table
         self.items_table = QTableWidget()
         self.items_table.setColumnCount(4)
         self.items_table.setHorizontalHeaderLabels(["الصنف", "القسم", "السعر", "الحالة"])
         self.items_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.items_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         items_layout.addWidget(self.items_table)
         
-        layout.addWidget(items_group)
+        items_main_layout.addWidget(items_group)
+        splitter.addWidget(items_widget)
         
-        self.setLayout(layout)
+        splitter.setStretchFactor(0, 1)
+        splitter.setStretchFactor(1, 2)
+        
+        layout.addWidget(splitter, 1)
     
     def load_categories(self):
         """Load categories from database"""
@@ -344,6 +368,7 @@ class RecipeDialog(QDialog):
         self.recipes_table.setColumnCount(4)
         self.recipes_table.setHorizontalHeaderLabels(['المكونات', 'الكمية', 'الوحدة', ''])
         self.recipes_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.recipes_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         layout.addWidget(self.recipes_table)
 
         # Add new recipe row

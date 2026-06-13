@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                              QLineEdit, QPushButton, QTableWidget, 
                              QTableWidgetItem, QHeaderView, QMessageBox,
-                             QComboBox, QGroupBox)
+                             QComboBox, QGroupBox, QSplitter)
 from PyQt6.QtCore import Qt
 from modules.auth import AuthManager
 
@@ -14,16 +14,24 @@ class EmployeeManager(QWidget):
         self.load_employees()
     
     def init_ui(self):
-        layout = QVBoxLayout()
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setSpacing(4)
+        self.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         
         # Title
         title = QLabel("إدارة الموظفين")
-        title.setStyleSheet("font-size: 16px; font-weight: bold; margin-bottom: 10px;")
+        title.setStyleSheet("font-size: 14px; font-weight: bold; margin-bottom: 4px;")
         layout.addWidget(title)
+        
+        # Splitter: form on right, table on left
+        splitter = QSplitter(Qt.Orientation.Horizontal)
         
         # Add employee form
         form_group = QGroupBox("إضافة موظف جديد")
         form_layout = QVBoxLayout(form_group)
+        form_layout.setSpacing(3)
+        form_layout.setContentsMargins(8, 8, 8, 8)
         
         self.username_input = QLineEdit()
         self.username_input.setPlaceholderText("اسم المستخدم")
@@ -45,22 +53,28 @@ class EmployeeManager(QWidget):
         form_layout.addWidget(QLabel("الدور:"))
         form_layout.addWidget(self.role_combo)
         form_layout.addWidget(add_btn)
+        form_layout.addStretch()
         
-        layout.addWidget(form_group)
+        splitter.addWidget(form_group)
         
         # Employees table
         table_group = QGroupBox("الموظفين الحاليين")
         table_layout = QVBoxLayout(table_group)
+        table_layout.setContentsMargins(4, 4, 4, 4)
         
         self.employees_table = QTableWidget()
         self.employees_table.setColumnCount(3)
         self.employees_table.setHorizontalHeaderLabels(["اسم المستخدم", "الدور", "الحالة"])
         self.employees_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.employees_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         
         table_layout.addWidget(self.employees_table)
-        layout.addWidget(table_group)
         
-        self.setLayout(layout)
+        splitter.addWidget(table_group)
+        splitter.setStretchFactor(0, 1)
+        splitter.setStretchFactor(1, 2)
+        
+        layout.addWidget(splitter, 1)
     
     def load_employees(self):
         """Load employees from database"""

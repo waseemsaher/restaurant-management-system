@@ -1,7 +1,8 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                              QLineEdit, QPushButton, QTableWidget, 
                              QTableWidgetItem, QHeaderView, QMessageBox,
-                             QGroupBox, QComboBox, QDialog, QFormLayout)
+                             QGroupBox, QComboBox, QDialog, QFormLayout,
+                             QScrollArea, QSplitter)
 from PyQt6.QtCore import Qt
 from modules.inventory import InventoryManager
 
@@ -52,19 +53,21 @@ class InventoryScreen(QWidget):
         self.load_inventory()
     
     def init_ui(self):
-        layout = QVBoxLayout()
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setSpacing(4)
         self.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         
         # Title
         title = QLabel("إدارة المخزون")
-        title.setStyleSheet("font-size: 16px; font-weight: bold; margin-bottom: 10px;")
+        title.setStyleSheet("font-size: 14px; font-weight: bold; margin-bottom: 4px;")
         layout.addWidget(title)
 
         # Alert banner
         self.alert_label = QLabel("")
         self.alert_label.setVisible(False)
         self.alert_label.setWordWrap(True)
-        self.alert_label.setStyleSheet("background: #fff3cd; color: #8a6d3b; padding: 10px; border: 1px solid #ffeeba; border-radius: 6px;")
+        self.alert_label.setStyleSheet("background: #fff3cd; color: #8a6d3b; padding: 6px; border: 1px solid #ffeeba; border-radius: 6px;")
         layout.addWidget(self.alert_label)
 
         # Search row
@@ -75,9 +78,20 @@ class InventoryScreen(QWidget):
         search_row.addWidget(self.search_input)
         layout.addLayout(search_row)
         
+        # Use a horizontal splitter for form and table side by side
+        content_splitter = QSplitter(Qt.Orientation.Horizontal)
+        
+        # Left side: forms in a scroll area
+        forms_widget = QWidget()
+        forms_layout = QVBoxLayout(forms_widget)
+        forms_layout.setContentsMargins(0, 0, 0, 0)
+        forms_layout.setSpacing(4)
+        
         # Add inventory item form
-        form_group = QGroupBox("إضافة صنف جديد للمخزون")
+        form_group = QGroupBox("إضافة صنف جديد")
         form_layout = QVBoxLayout(form_group)
+        form_layout.setSpacing(3)
+        form_layout.setContentsMargins(8, 8, 8, 8)
         
         self.item_name_input = QLineEdit()
         self.item_name_input.setPlaceholderText("اسم الصنف (مثال: دقيق، زيت، جبنة)")
@@ -106,24 +120,13 @@ class InventoryScreen(QWidget):
         form_layout.addWidget(self.min_quantity_input)
         form_layout.addWidget(add_btn)
         
-        layout.addWidget(form_group)
-        
-        # Inventory table
-        table_group = QGroupBox("المخزون الحالي")
-        table_layout = QVBoxLayout(table_group)
-        
-        self.inventory_table = QTableWidget()
-        self.inventory_table.setColumnCount(6)
-        self.inventory_table.setHorizontalHeaderLabels(["الصنف", "الوحدة", "الكمية", "الحد الأدنى", "الحالة", "آخر تحديث"])
-        self.inventory_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        
-        table_layout.addWidget(self.inventory_table)
-        
-        layout.addWidget(table_group)
+        forms_layout.addWidget(form_group)
         
         # Add inventory transaction form
-        transaction_group = QGroupBox("إضافة كمية جديدة (مشتريات)")
+        transaction_group = QGroupBox("إضافة كمية (مشتريات)")
         transaction_layout = QVBoxLayout(transaction_group)
+        transaction_layout.setSpacing(3)
+        transaction_layout.setContentsMargins(8, 8, 8, 8)
         
         self.transaction_item_combo = QComboBox()
         
@@ -144,9 +147,29 @@ class InventoryScreen(QWidget):
         edit_btn.clicked.connect(self.edit_selected_item)
         transaction_layout.addWidget(edit_btn)
         
-        layout.addWidget(transaction_group)
+        forms_layout.addWidget(transaction_group)
+        forms_layout.addStretch()
         
-        self.setLayout(layout)
+        content_splitter.addWidget(forms_widget)
+        
+        # Right side: table
+        table_group = QGroupBox("المخزون الحالي")
+        table_layout = QVBoxLayout(table_group)
+        table_layout.setContentsMargins(4, 4, 4, 4)
+        
+        self.inventory_table = QTableWidget()
+        self.inventory_table.setColumnCount(6)
+        self.inventory_table.setHorizontalHeaderLabels(["الصنف", "الوحدة", "الكمية", "الحد الأدنى", "الحالة", "آخر تحديث"])
+        self.inventory_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.inventory_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        
+        table_layout.addWidget(self.inventory_table)
+        
+        content_splitter.addWidget(table_group)
+        content_splitter.setStretchFactor(0, 1)
+        content_splitter.setStretchFactor(1, 2)
+        
+        layout.addWidget(content_splitter, 1)
     
     def load_inventory(self):
         """Load inventory items"""

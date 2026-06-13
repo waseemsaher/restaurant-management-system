@@ -61,12 +61,13 @@ class ShiftDetailsDialog(QDialog):
         self.table.setColumnCount(2)
         self.table.setHorizontalHeaderLabels(["رقم الأوردر", "الإجمالي"])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         
-        orders = self.db.execute("SELECT order_number, total FROM orders WHERE shift_id = ? AND status='completed'", (self.shift_id,))
+        orders = self.db.execute("SELECT order_number, total_amount FROM orders WHERE shift_id = ? AND is_returned=0", (self.shift_id,))
         self.table.setRowCount(len(orders))
         for i, o in enumerate(orders):
             self.table.setItem(i, 0, QTableWidgetItem(str(o['order_number'])))
-            self.table.setItem(i, 1, QTableWidgetItem(f"{o['total']:.2f} ج.م"))
+            self.table.setItem(i, 1, QTableWidgetItem(f"{o['total_amount']:.2f} ج.م"))
             
         layout.addWidget(self.table)
         
@@ -92,6 +93,8 @@ class ShiftsWindow(QWidget):
     def init_ui(self):
         self.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(4, 4, 4, 4)
+        layout.setSpacing(4)
         
         # Filter section
         filter_layout = QHBoxLayout()
@@ -121,6 +124,7 @@ class ShiftsWindow(QWidget):
             "ID", "التاريخ", "الشفت", "الموظف", "المبيعات", "الأوردرات", "عرض"
         ])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         # Hide ID column
         self.table.setColumnHidden(0, True)
         
