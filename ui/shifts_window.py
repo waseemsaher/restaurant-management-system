@@ -39,10 +39,26 @@ class ShiftDetailsDialog(QDialog):
         line1.setFrameShape(QFrame.Shape.HLine)
         layout.addWidget(line1)
         
-        # Totals
-        total_sales = s.get('total_sales') or 0.0
-        total_orders = s.get('total_orders') or 0
-        cash_coll = s.get('cash_collected') or 0.0
+        # Calculate REAL totals from orders table (not from shift table which may be stale)
+        real_totals = self.db.execute(
+            """SELECT 
+               COUNT(*) as total_orders,
+               COALESCE(SUM(total_amount), 0) as total_sales,
+               COALESCE(SUM(CASE WHEN payment_method='cash' THEN total_amount ELSE 0 END), 0) as cash_collected
+               FROM orders 
+               WHERE shift_id = ? AND is_returned = 0""",
+            (self.shift_id,)
+        )
+        
+        if real_totals and real_totals[0]['total_orders'] > 0:
+            total_orders = real_totals[0]['total_orders']
+            total_sales = real_totals[0]['total_sales']
+            cash_coll = real_totals[0]['cash_collected']
+        else:
+            total_orders = 0
+            total_sales = 0.0
+            cash_coll = 0.0
+        
         avg = total_sales / total_orders if total_orders > 0 else 0.0
         
         layout.addWidget(QLabel(f"إجمالي المبيعات: {total_sales:.2f} ج.م"))
@@ -58,16 +74,20 @@ class ShiftDetailsDialog(QDialog):
         
         # Orders table
         self.table = QTableWidget()
-        self.table.setColumnCount(2)
-        self.table.setHorizontalHeaderLabels(["رقم الأوردر", "الإجمالي"])
+        self.table.setColumnCount(3)
+        self.table.setHorizontalHeaderLabels(["رقم الأوردر", "الإجمالي", "طريقة الدفع"])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         
-        orders = self.db.execute("SELECT order_number, total_amount FROM orders WHERE shift_id = ? AND is_returned=0", (self.shift_id,))
+        orders = self.db.execute(
+            "SELECT order_number, total_amount, payment_method FROM orders WHERE shift_id = ? AND is_returned=0 ORDER BY id",
+            (self.shift_id,)
+        )
         self.table.setRowCount(len(orders))
         for i, o in enumerate(orders):
             self.table.setItem(i, 0, QTableWidgetItem(str(o['order_number'])))
             self.table.setItem(i, 1, QTableWidgetItem(f"{o['total_amount']:.2f} ج.م"))
+            self.table.setItem(i, 2, QTableWidgetItem(o.get('payment_method', 'cash')))
             
         layout.addWidget(self.table)
         
@@ -119,9 +139,9 @@ class ShiftsWindow(QWidget):
         
         # Table
         self.table = QTableWidget()
-        self.table.setColumnCount(7)
+        self.table.setColumnCount(8)
         self.table.setHorizontalHeaderLabels([
-            "ID", "التاريخ", "الشفت", "الموظف", "المبيعات", "الأوردرات", "عرض"
+            "ID", "التاريخ", "الشفت", "الموظف", "المبيعات", "الأوردرات", "كاش محصل", "عرض"
         ])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
@@ -149,8 +169,7 @@ class ShiftsWindow(QWidget):
         d_to = self.date_to.date().toString("yyyy-MM-dd") + " 23:59:59"
         
         shifts = self.db.execute(
-            """SELECT s.id, s.started_at, s.shift_name, e.username as emp_name,
-                      s.total_sales, s.total_orders 
+            """SELECT s.id, s.started_at, s.shift_name, e.username as emp_name
                FROM shifts s 
                JOIN employees e ON s.employee_id = e.id 
                WHERE s.started_at BETWEEN ? AND ? 
@@ -165,12 +184,32 @@ class ShiftsWindow(QWidget):
             self.table.setItem(i, 1, QTableWidgetItem(date_str))
             self.table.setItem(i, 2, QTableWidgetItem(s['shift_name']))
             self.table.setItem(i, 3, QTableWidgetItem(s['emp_name']))
-            self.table.setItem(i, 4, QTableWidgetItem(f"{s['total_sales'] or 0:.2f}"))
-            self.table.setItem(i, 5, QTableWidgetItem(str(s['total_orders'] or 0)))
+            
+            # Calculate REAL totals from orders (not from shift table)
+            real = self.db.execute(
+                """SELECT 
+                   COUNT(*) as cnt,
+                   COALESCE(SUM(total_amount), 0) as sales,
+                   COALESCE(SUM(CASE WHEN payment_method='cash' THEN total_amount ELSE 0 END), 0) as cash
+                   FROM orders WHERE shift_id = ? AND is_returned = 0""",
+                (s['id'],)
+            )
+            if real and real[0]['cnt'] > 0:
+                total_sales = real[0]['sales']
+                total_orders = real[0]['cnt']
+                cash_collected = real[0]['cash']
+            else:
+                total_sales = 0.0
+                total_orders = 0
+                cash_collected = 0.0
+
+            self.table.setItem(i, 4, QTableWidgetItem(f"{total_sales:.2f}"))
+            self.table.setItem(i, 5, QTableWidgetItem(str(total_orders)))
+            self.table.setItem(i, 6, QTableWidgetItem(f"{cash_collected:.2f}"))
             
             btn = QPushButton("📄")
             btn.clicked.connect(lambda checked, sid=s['id']: self.show_shift_dialog(sid))
-            self.table.setCellWidget(i, 6, btn)
+            self.table.setCellWidget(i, 7, btn)
 
     def show_shift_dialog(self, shift_id):
         dialog = ShiftDetailsDialog(shift_id, self)

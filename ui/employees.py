@@ -1,15 +1,17 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                              QLineEdit, QPushButton, QTableWidget, 
                              QTableWidgetItem, QHeaderView, QMessageBox,
-                             QComboBox, QGroupBox, QSplitter)
+                             QComboBox, QGroupBox, QSplitter, QInputDialog)
 from PyQt6.QtCore import Qt
 from modules.auth import AuthManager
+from database.db import Database
 
 class EmployeeManager(QWidget):
     def __init__(self, user_session: dict):
         super().__init__()
         self.user_session = user_session
         self.auth = AuthManager()
+        self.db = Database()
         self.init_ui()
         self.load_employees()
     
@@ -27,6 +29,12 @@ class EmployeeManager(QWidget):
         # Splitter: form on right, table on left
         splitter = QSplitter(Qt.Orientation.Horizontal)
         
+        # Left side: Add employee form + Shift assignment
+        left_widget = QWidget()
+        left_layout = QVBoxLayout(left_widget)
+        left_layout.setContentsMargins(0, 0, 0, 0)
+        left_layout.setSpacing(6)
+
         # Add employee form
         form_group = QGroupBox("إضافة موظف جديد")
         form_layout = QVBoxLayout(form_group)
@@ -44,6 +52,8 @@ class EmployeeManager(QWidget):
         self.role_combo.addItems(["كاشير", "مدير", "صاحب"])
         
         add_btn = QPushButton("إضافة موظف")
+        add_btn.setStyleSheet("background-color: #27ae60; color: white; font-weight: bold; padding: 8px; border-radius: 6px;")
+        add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         add_btn.clicked.connect(self.add_employee)
         
         form_layout.addWidget(QLabel("اسم المستخدم:"))
@@ -53,9 +63,36 @@ class EmployeeManager(QWidget):
         form_layout.addWidget(QLabel("الدور:"))
         form_layout.addWidget(self.role_combo)
         form_layout.addWidget(add_btn)
-        form_layout.addStretch()
+
+        left_layout.addWidget(form_group)
+
+        # Shift assignment section
+        shift_group = QGroupBox("فتح شيفت لموظف")
+        shift_layout = QVBoxLayout(shift_group)
+        shift_layout.setSpacing(3)
+        shift_layout.setContentsMargins(8, 8, 8, 8)
+
+        self.shift_emp_combo = QComboBox()
+        self.shift_emp_combo.setPlaceholderText("اختر الموظف...")
+
+        self.shift_type_combo = QComboBox()
+        self.shift_type_combo.addItems(["صباحي", "مسائي"])
+
+        open_shift_btn = QPushButton("فتح شيفت")
+        open_shift_btn.setStyleSheet("background-color: #3498db; color: white; font-weight: bold; padding: 8px; border-radius: 6px;")
+        open_shift_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        open_shift_btn.clicked.connect(self.open_shift_for_employee)
+
+        shift_layout.addWidget(QLabel("الموظف:"))
+        shift_layout.addWidget(self.shift_emp_combo)
+        shift_layout.addWidget(QLabel("نوع الشيفت:"))
+        shift_layout.addWidget(self.shift_type_combo)
+        shift_layout.addWidget(open_shift_btn)
+
+        left_layout.addWidget(shift_group)
+        left_layout.addStretch()
         
-        splitter.addWidget(form_group)
+        splitter.addWidget(left_widget)
         
         # Employees table
         table_group = QGroupBox("الموظفين الحاليين")
@@ -63,9 +100,15 @@ class EmployeeManager(QWidget):
         table_layout.setContentsMargins(4, 4, 4, 4)
         
         self.employees_table = QTableWidget()
-        self.employees_table.setColumnCount(3)
-        self.employees_table.setHorizontalHeaderLabels(["اسم المستخدم", "الدور", "الحالة"])
-        self.employees_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.employees_table.setColumnCount(5)
+        self.employees_table.setHorizontalHeaderLabels(["اسم المستخدم", "الدور", "الحالة", "الشيفت", "إجراءات"])
+        header = self.employees_table.horizontalHeader()
+        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        header.setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
+        header.setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
+        header.resizeSection(4, 180)
         self.employees_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         
         table_layout.addWidget(self.employees_table)
@@ -81,6 +124,10 @@ class EmployeeManager(QWidget):
         employees = self.auth.db.execute("SELECT * FROM employees ORDER BY username")
         
         self.employees_table.setRowCount(len(employees))
+
+        # Also refresh the shift employee combo
+        self.shift_emp_combo.clear()
+        self.shift_emp_combo.addItem("اختر الموظف...", None)
         
         for row, employee in enumerate(employees):
             # Username
@@ -98,10 +145,125 @@ class EmployeeManager(QWidget):
             self.employees_table.setItem(row, 1, item)
             
             # Status
-            status_text = "مفعل" if employee['is_active'] else "معطل"
+            is_active = employee['is_active']
+            status_text = "مفعل ✅" if is_active else "معطل ❌"
             item = QTableWidgetItem(status_text)
+            item.setForeground(Qt.GlobalColor.darkGreen if is_active else Qt.GlobalColor.red)
             self.employees_table.setItem(row, 2, item)
+
+            # Active shift info
+            active_shift = self.db.execute(
+                "SELECT shift_name, started_at FROM shifts WHERE employee_id = ? AND is_active = 1 LIMIT 1",
+                (employee['id'],)
+            )
+            if active_shift:
+                s = active_shift[0]
+                shift_text = f"{s['shift_name']} ({s['started_at'][:16] if s['started_at'] else ''})"
+            else:
+                shift_text = "لا يوجد"
+            item = QTableWidgetItem(shift_text)
+            self.employees_table.setItem(row, 3, item)
+
+            # Action buttons container
+            actions_widget = QWidget()
+            actions_layout = QHBoxLayout(actions_widget)
+            actions_layout.setContentsMargins(4, 2, 4, 2)
+            actions_layout.setSpacing(4)
+
+            # Toggle active/inactive button
+            if is_active:
+                toggle_btn = QPushButton("تعطيل")
+                toggle_btn.setStyleSheet("""
+                    QPushButton {
+                        background-color: #fadbd8; color: #c0392b;
+                        font-weight: bold; border-radius: 4px; padding: 4px 8px;
+                        border: 1px solid #f5c6cb;
+                    }
+                    QPushButton:hover { background-color: #e74c3c; color: white; }
+                """)
+            else:
+                toggle_btn = QPushButton("تفعيل")
+                toggle_btn.setStyleSheet("""
+                    QPushButton {
+                        background-color: #d5f5e3; color: #1e8449;
+                        font-weight: bold; border-radius: 4px; padding: 4px 8px;
+                        border: 1px solid #c3e6cb;
+                    }
+                    QPushButton:hover { background-color: #27ae60; color: white; }
+                """)
+            toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            toggle_btn.clicked.connect(
+                lambda checked, eid=employee['id'], active=is_active: self.toggle_employee(eid, active)
+            )
+            actions_layout.addWidget(toggle_btn)
+
+            self.employees_table.setCellWidget(row, 4, actions_widget)
+
+            # Add to shift combo (only active employees)
+            if is_active:
+                self.shift_emp_combo.addItem(f"{employee['username']} ({role_text})", employee['id'])
     
+    def toggle_employee(self, employee_id: int, currently_active: bool):
+        """Toggle employee active status"""
+        # Prevent deactivating yourself
+        if employee_id == self.user_session.get('id') and currently_active:
+            QMessageBox.warning(self, "خطأ", "لا يمكنك تعطيل حسابك الخاص!")
+            return
+
+        new_status = 0 if currently_active else 1
+        action_text = "تعطيل" if currently_active else "تفعيل"
+
+        msg = QMessageBox(self)
+        msg.setWindowTitle("تأكيد")
+        msg.setText(f"هل تريد {action_text} هذا الموظف؟")
+        yes_btn = msg.addButton("نعم", QMessageBox.ButtonRole.YesRole)
+        no_btn = msg.addButton("لا", QMessageBox.ButtonRole.NoRole)
+        msg.exec()
+
+        if msg.clickedButton() == yes_btn:
+            try:
+                self.auth.update_employee(employee_id, is_active=new_status)
+                self.load_employees()
+                QMessageBox.information(self, "تم", f"تم {action_text} الموظف بنجاح")
+            except Exception as e:
+                QMessageBox.warning(self, "خطأ", f"فشل في {action_text} الموظف: {str(e)}")
+
+    def open_shift_for_employee(self):
+        """Open a shift for the selected employee"""
+        emp_id = self.shift_emp_combo.currentData()
+        if not emp_id:
+            QMessageBox.warning(self, "خطأ", "يرجى اختيار موظف أولاً")
+            return
+
+        shift_name = self.shift_type_combo.currentText()
+        emp_name = self.shift_emp_combo.currentText()
+
+        # Check if employee already has an active shift
+        active = self.db.execute(
+            "SELECT * FROM shifts WHERE employee_id = ? AND is_active = 1", (emp_id,)
+        )
+        if active:
+            QMessageBox.warning(self, "تنبيه", f"الموظف {emp_name} لديه شيفت مفتوح بالفعل. يرجى إغلاقه أولاً.")
+            return
+
+        msg = QMessageBox(self)
+        msg.setWindowTitle("تأكيد")
+        msg.setText(f"فتح شيفت '{shift_name}' للموظف {emp_name}؟")
+        yes_btn = msg.addButton("نعم", QMessageBox.ButtonRole.YesRole)
+        no_btn = msg.addButton("لا", QMessageBox.ButtonRole.NoRole)
+        msg.exec()
+
+        if msg.clickedButton() == yes_btn:
+            try:
+                self.db.execute_non_query(
+                    "INSERT INTO shifts (employee_id, shift_name, started_at, is_active) VALUES (?, ?, CURRENT_TIMESTAMP, 1)",
+                    (emp_id, shift_name)
+                )
+                QMessageBox.information(self, "نجاح", f"تم فتح شيفت '{shift_name}' للموظف {emp_name}")
+                self.load_employees()
+            except Exception as e:
+                QMessageBox.warning(self, "خطأ", f"فشل في فتح الشيفت: {str(e)}")
+
     def add_employee(self):
         """Add new employee"""
         username = self.username_input.text().strip()
