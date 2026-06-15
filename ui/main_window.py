@@ -30,6 +30,7 @@ class MainWindow(QMainWindow):
     
     def init_ui(self):
         self.setWindowTitle("نظام إدارة المطاعم")
+        self.setWindowIcon(QIcon("assets/icons/restaurant.png"))
         self.showMaximized()
         self.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         

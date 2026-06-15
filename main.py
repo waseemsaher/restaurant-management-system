@@ -6,6 +6,7 @@ os.environ.setdefault("LIBGL_ALWAYS_SOFTWARE", "1")
 import sys
 from PyQt6.QtWidgets import QApplication
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QIcon
 from database.init_db import initialize_database
 from modules.auth import AuthManager
 from utils.config import ConfigManager
@@ -32,6 +33,7 @@ def main():
     # 4. Start UI
     QApplication.setAttribute(Qt.ApplicationAttribute.AA_UseSoftwareOpenGL, True)
     app = QApplication(sys.argv)
+    app.setWindowIcon(QIcon("assets/icons/restaurant.png"))
     app.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
     app.setStyleSheet(get_main_style()) # Apply global professional style
     

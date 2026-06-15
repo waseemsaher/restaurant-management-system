@@ -2,6 +2,7 @@ from PyQt6.QtWidgets import (QMainWindow, QWidget, QVBoxLayout,
                              QLabel, QLineEdit, QPushButton, 
                              QMessageBox, QGroupBox, QFrame)
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QIcon
 from modules.auth import AuthManager
 from utils.styles import get_login_style
 
@@ -15,6 +16,7 @@ class LoginScreen(QMainWindow):
     
     def init_ui(self):
         self.setWindowTitle("تسجيل الدخول - نظام إدارة المطاعم")
+        self.setWindowIcon(QIcon("assets/icons/restaurant.png"))
         self.setMinimumSize(500, 450)
         self.resize(500, 450)
         
