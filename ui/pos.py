@@ -18,6 +18,7 @@ class POSScreen(QWidget):
         self.inventory_manager = InventoryManager()
         self.current_order = []
         self.order_number = self.order_manager.get_next_order_number()
+        self.selected_category_btn = None  # track selected category button
         self.init_ui()
         self.setup_connections()
         self.update_order_number()
@@ -65,28 +66,17 @@ class POSScreen(QWidget):
         categories_layout.setSpacing(6)
         categories_layout.setContentsMargins(8, 8, 8, 8)
         
+        self.category_buttons = []
         categories = self.order_manager.get_categories()
         for category in categories:
             btn = QPushButton(category['name'])
             btn.setMinimumHeight(40)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #ffffff;
-                    color: #2c3e50;
-                    border: 2px solid #3498db;
-                    border-radius: 8px;
-                    font-weight: bold;
-                    font-size: 13px;
-                }
-                QPushButton:hover {
-                    background-color: #3498db;
-                    color: white;
-                }
-            """)
+            btn.setStyleSheet(self._category_btn_style(False))
             btn.clicked.connect(self.category_button_clicked)
             btn.setProperty("category_id", category['id'])
             categories_layout.addWidget(btn)
+            self.category_buttons.append(btn)
         
         categories_layout.addStretch()
         cat_main_layout.addWidget(categories_group)
@@ -277,9 +267,47 @@ class POSScreen(QWidget):
                 col = 0
                 row += 1
 
+    def _category_btn_style(self, selected: bool) -> str:
+        if selected:
+            return """
+                QPushButton {
+                    background-color: #3498db;
+                    color: white;
+                    border: 2px solid #2980b9;
+                    border-radius: 8px;
+                    font-weight: bold;
+                    font-size: 13px;
+                }
+                QPushButton:hover {
+                    background-color: #2980b9;
+                    color: white;
+                }
+            """
+        return """
+            QPushButton {
+                background-color: #ffffff;
+                color: #2c3e50;
+                border: 2px solid #3498db;
+                border-radius: 8px;
+                font-weight: bold;
+                font-size: 13px;
+            }
+            QPushButton:hover {
+                background-color: #3498db;
+                color: white;
+            }
+        """
+
     def category_button_clicked(self):
         sender = self.sender()
         category_id = sender.property("category_id")
+
+        # Update visual selection for category buttons
+        if self.selected_category_btn:
+            self.selected_category_btn.setStyleSheet(self._category_btn_style(False))
+        sender.setStyleSheet(self._category_btn_style(True))
+        self.selected_category_btn = sender
+
         # populate items area with buttons
         items = self.order_manager.get_items_by_category(category_id)
         # clear existing widgets
@@ -333,16 +361,6 @@ class POSScreen(QWidget):
         if not item or not item['is_available']:
             QMessageBox.warning(self, "خطأ", "الصنف غير متاح")
             return
-        # check all recipe components for availability
-        recipes = self.order_manager.get_recipes(item_id)
-        for recipe in recipes:
-            inv = self.inventory_manager.get_item(recipe['inventory_item_id'])
-            if not inv:
-                QMessageBox.warning(self, "المخزون", f"مكون {recipe.get('inventory_item_name','?')} غير موجود في المخزون")
-                return
-            if inv['current_quantity'] < (recipe['quantity'] * quantity):
-                QMessageBox.warning(self, "المخزون", f"كمية {inv['name']} لا تكفي")
-                return
         
         for i, order_item in enumerate(self.current_order):
             if order_item['id'] == item_id:
@@ -360,43 +378,51 @@ class POSScreen(QWidget):
             self.order_table.setItem(row, 0, QTableWidgetItem(item['name']))
             quantity = item['quantity']
 
-            # --- Quantity widget: [+] qty [-] centered ---
+            # --- Quantity widget: [+] editable_qty [-] centered ---
             spin_container = QWidget()
             spin_container.setStyleSheet("background: transparent;")
             spin_layout = QHBoxLayout(spin_container)
-            spin_layout.setContentsMargins(6, 4, 6, 4)
-            spin_layout.setSpacing(4)
+            spin_layout.setContentsMargins(4, 4, 4, 4)
+            spin_layout.setSpacing(3)
             spin_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
             btn_plus = QPushButton("+")
-            btn_plus.setFixedSize(28, 28)
+            btn_plus.setFixedSize(26, 26)
             btn_plus.setCursor(Qt.CursorShape.PointingHandCursor)
             btn_plus.setStyleSheet("""
                 QPushButton {
                     background-color: #d5f5e3; color: #1e8449;
-                    font-weight: bold; border-radius: 14px;
+                    font-weight: bold; border-radius: 13px;
                     font-size: 16px; border: none; padding: 0px;
                 }
                 QPushButton:hover { background-color: #27ae60; color: white; }
             """)
             btn_plus.clicked.connect(lambda c, bid=item['id'], q=quantity: self.on_quantity_changed_custom(bid, q + 1))
 
-            lbl_qty = QLabel(str(quantity))
-            lbl_qty.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            lbl_qty.setFixedSize(32, 26)
-            lbl_qty.setStyleSheet("""
-                background-color: #eaf2f8; color: #2c3e50;
-                font-weight: bold; font-size: 14px;
-                border-radius: 6px; padding: 0px;
+            qty_edit = QLineEdit(str(quantity))
+            qty_edit.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            qty_edit.setFixedSize(40, 26)
+            qty_edit.setStyleSheet("""
+                QLineEdit {
+                    background-color: #eaf2f8; color: #2c3e50;
+                    font-weight: bold; font-size: 14px;
+                    border-radius: 6px; border: 1px solid #bdc3c7;
+                    padding: 0px;
+                }
+                QLineEdit:focus {
+                    border: 1px solid #3498db;
+                    background-color: #ffffff;
+                }
             """)
+            qty_edit.editingFinished.connect(lambda bid=item['id'], edit=qty_edit: self._on_qty_edit_finished(bid, edit))
 
             btn_minus = QPushButton("−")
-            btn_minus.setFixedSize(28, 28)
+            btn_minus.setFixedSize(26, 26)
             btn_minus.setCursor(Qt.CursorShape.PointingHandCursor)
             btn_minus.setStyleSheet("""
                 QPushButton {
                     background-color: #fadbd8; color: #c0392b;
-                    font-weight: bold; border-radius: 14px;
+                    font-weight: bold; border-radius: 13px;
                     font-size: 16px; border: none; padding: 0px;
                 }
                 QPushButton:hover { background-color: #e74c3c; color: white; }
@@ -404,7 +430,7 @@ class POSScreen(QWidget):
             btn_minus.clicked.connect(lambda c, bid=item['id'], q=quantity: self.on_quantity_changed_custom(bid, q - 1))
 
             spin_layout.addWidget(btn_plus)
-            spin_layout.addWidget(lbl_qty)
+            spin_layout.addWidget(qty_edit)
             spin_layout.addWidget(btn_minus)
 
             self.order_table.setCellWidget(row, 1, spin_container)
@@ -445,6 +471,15 @@ class POSScreen(QWidget):
             self.order_table.setRowHeight(r, 40)
         self.total_label.setText(f"الإجمالي: {total:.2f} ج.م")
 
+    def _on_qty_edit_finished(self, item_id, edit_widget):
+        """Handle manual quantity entry from the QLineEdit."""
+        text = edit_widget.text().strip()
+        try:
+            value = int(text)
+        except ValueError:
+            value = 1
+        self.on_quantity_changed_custom(item_id, value)
+
     def on_quantity_changed_custom(self, item_id, value):
         if value < 1:
             value = 1
@@ -480,6 +515,33 @@ class POSScreen(QWidget):
             self.current_order = []
             self.update_order_table()
 
+    def _check_inventory_for_order(self):
+        """Check inventory availability for all items in the current order.
+        Returns (can_proceed: bool, warnings: list[str], blockers: list[str])
+        """
+        warnings = []
+        blockers = []
+        for item in self.current_order:
+            recipes = self.order_manager.get_recipes(item['id'])
+            for recipe in recipes:
+                inv = self.inventory_manager.get_item(recipe['inventory_item_id'])
+                if not inv:
+                    blockers.append(f"مكون '{recipe.get('inventory_item_name', '?')}' غير موجود في المخزون")
+                    continue
+                needed = recipe['quantity'] * item['quantity']
+                available = inv['current_quantity']
+                if available < needed:
+                    blockers.append(
+                        f"الصنف '{item['name']}': المكون '{inv['name']}' "
+                        f"المطلوب {needed:.2f} {inv.get('unit','')} - المتاح {available:.2f} {inv.get('unit','')}"
+                    )
+                elif inv.get('min_quantity') is not None and (available - needed) <= inv['min_quantity']:
+                    warnings.append(
+                        f"تحذير: المكون '{inv['name']}' سيصل لحد المخزون الأدنى بعد هذا الطلب "
+                        f"(متبقي: {available - needed:.2f} {inv.get('unit','')})"
+                    )
+        return len(blockers) == 0, warnings, blockers
+
     def checkout(self):
         if not self.current_order: return
         
@@ -489,6 +551,29 @@ class POSScreen(QWidget):
         if not active_shift:
             QMessageBox.warning(self, "تنبيه", "لا يمكن إتمام الطلب لعدم وجود شيفت مفتوح.")
             return
+
+        # --- Inventory check ---
+        can_proceed, inv_warnings, inv_blockers = self._check_inventory_for_order()
+
+        if not can_proceed:
+            blocker_text = "\n".join(inv_blockers)
+            QMessageBox.critical(
+                self, "المخزون غير كافي",
+                f"لا يمكن إتمام الطلب بسبب نقص في المخزون:\n\n{blocker_text}"
+            )
+            return
+
+        if inv_warnings:
+            warn_text = "\n".join(inv_warnings)
+            msg_warn = QMessageBox(self)
+            msg_warn.setWindowTitle("تحذير المخزون")
+            msg_warn.setIcon(QMessageBox.Icon.Warning)
+            msg_warn.setText(f"المخزون قليل لبعض المكونات:\n\n{warn_text}\n\nهل ترغب في الاستمرار؟")
+            yes_btn_w = msg_warn.addButton("نعم، استمر", QMessageBox.ButtonRole.YesRole)
+            no_btn_w = msg_warn.addButton("لا، إلغاء", QMessageBox.ButtonRole.NoRole)
+            msg_warn.exec()
+            if msg_warn.clickedButton() != yes_btn_w:
+                return
 
         total = sum(item['price'] * item['quantity'] for item in self.current_order)
         
@@ -515,7 +600,7 @@ class POSScreen(QWidget):
                 for recipe in recipes:
                     self.inventory_manager.consume_item(recipe['inventory_item_id'], recipe['quantity'] * item['quantity'])
             
-            self.order_manager.update_shift_stats(self.user_session['id'], total)
+            self.order_manager.update_shift_stats(self.user_session['id'], total, "cash")
             self.generate_receipt(order_id)
             self.current_order = []
             self.update_order_table()

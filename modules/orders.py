@@ -126,15 +126,24 @@ class OrderManager:
             WHERE oi.order_id = ?
         """, (order_id,))
     
-    def update_shift_stats(self, employee_id: int, amount: float):
-        """Update shift statistics (total sales and order count)"""
+    def update_shift_stats(self, employee_id: int, amount: float, payment_method: str = 'cash'):
+        """Update shift statistics (total sales, order count, and cash collected)"""
         shift = self.shifts_manager.get_current_shift(employee_id)
         if not shift:
             return
             
-        query = """
-            UPDATE shifts 
-            SET total_sales = total_sales + ?, total_orders = total_orders + 1 
-            WHERE id = ?
-        """
-        self.db.execute_non_query(query, (amount, shift['id']))
+        if payment_method == 'cash':
+            query = """
+                UPDATE shifts 
+                SET total_sales = total_sales + ?, total_orders = total_orders + 1, cash_collected = cash_collected + ?
+                WHERE id = ?
+            """
+            self.db.execute_non_query(query, (amount, amount, shift['id']))
+        else:
+            query = """
+                UPDATE shifts 
+                SET total_sales = total_sales + ?, total_orders = total_orders + 1 
+                WHERE id = ?
+            """
+            self.db.execute_non_query(query, (amount, shift['id']))
+
