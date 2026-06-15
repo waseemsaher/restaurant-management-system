@@ -47,20 +47,26 @@ class InvoiceDialog(QDialog):
         layout.addLayout(btn_layout)
 
     def format_invoice_text(self):
+        # Use Unicode LRM (\u200e) to force correct display of numbers in RTL context
+        LRM = "\u200e"
         lines = []
-        lines.append(f"رقم الطلب: {self.order.get('order_number','')}")
-        lines.append(f"التاريخ: {self.order.get('order_time','')}")
+        lines.append(f"رقم الطلب: {LRM}{self.order.get('order_number','')}")
+        lines.append(f"التاريخ: {LRM}{self.order.get('order_time','')}")
         lines.append("=" * 32)
+        # Header row
+        lines.append(f"{'الصنف':<16}  {'الكمية':>6}  {'السعر':>8}  {'الإجمالي':>8}")
+        lines.append("-" * 32)
         total = 0
         for it in self.items:
-            name = it.get('name')
+            name = it.get('name', '')
             qty = it.get('quantity', 0)
             price = it.get('price_at_time', 0)
             subtotal = qty * price
             total += subtotal
-            lines.append(f"{name} x{qty}  - {subtotal:.2f} ج.م")
+            # Each number is wrapped with LRM to prevent RTL reordering
+            lines.append(f"{name}  {LRM}{qty} x {LRM}{price:.2f} = {LRM}{subtotal:.2f} ج.م")
         lines.append("=" * 32)
-        lines.append(f"الإجمالي: {total:.2f} ج.م")
+        lines.append(f"الإجمالي: {LRM}{total:.2f} ج.م")
         lines.append("")
         lines.append("شكراً لزيارتكم")
         return "\n".join(lines)

@@ -40,13 +40,15 @@ class PrinterUtility:
             font = ImageFont.load_default()
             title_font = font
             
+        # Unicode LRM to fix RTL number display
+        LRM = "\u200e"
         y = 20
         d.text((width/2 - 100, y), "فاتورة", font=title_font, fill=(0,0,0))
         y += 60
         
-        d.text((20, y), f"رقم الأوردر: {order_data.get('order_number', '')}", font=font, fill=(0,0,0))
+        d.text((20, y), f"رقم الأوردر: {LRM}{order_data.get('order_number', '')}", font=font, fill=(0,0,0))
         y += 40
-        d.text((20, y), f"التاريخ: {order_data.get('created_at', '')}", font=font, fill=(0,0,0))
+        d.text((20, y), f"التاريخ: {LRM}{order_data.get('created_at', '')}", font=font, fill=(0,0,0))
         y += 50
         
         d.line([(20, y), (width-20, y)], fill=(0,0,0), width=2)
@@ -58,8 +60,8 @@ class PrinterUtility:
             subtotal = qty * price
             name = item.get('name', 'Unknown')
             d.text((20, y), f"{name}", font=font, fill=(0,0,0))
-            d.text((width - 200, y), f"{qty}x", font=font, fill=(0,0,0))
-            d.text((width - 100, y), f"{subtotal:.2f}", font=font, fill=(0,0,0))
+            d.text((width - 200, y), f"{LRM}{qty}x", font=font, fill=(0,0,0))
+            d.text((width - 100, y), f"{LRM}{subtotal:.2f}", font=font, fill=(0,0,0))
             y += 40
             
         d.line([(20, y), (width-20, y)], fill=(0,0,0), width=2)
@@ -67,7 +69,7 @@ class PrinterUtility:
         
         total = order_data.get('total', 0)
         d.text((20, y), f"الإجمالي:", font=title_font, fill=(0,0,0))
-        d.text((width - 150, y), f"{total:.2f} ج.م", font=title_font, fill=(0,0,0))
+        d.text((width - 150, y), f"{LRM}{total:.2f} ج.م", font=title_font, fill=(0,0,0))
         y += 80
         
         # Thank you message
