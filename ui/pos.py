@@ -62,15 +62,25 @@ class POSScreen(QWidget):
         cat_main_layout.setSpacing(4)
         
         categories_group = QGroupBox("الأقسام")
-        categories_layout = QVBoxLayout(categories_group)
+        categories_group_layout = QVBoxLayout(categories_group)
+        categories_group_layout.setSpacing(0)
+        categories_group_layout.setContentsMargins(4, 4, 4, 4)
+        
+        # Wrap category buttons in a scroll area to prevent
+        # their accumulated minimum heights from inflating the window
+        cat_scroll = QScrollArea()
+        cat_scroll.setWidgetResizable(True)
+        cat_scroll.setFrameShape(QScrollArea.Shape.NoFrame)
+        cat_buttons_container = QWidget()
+        categories_layout = QVBoxLayout(cat_buttons_container)
         categories_layout.setSpacing(6)
-        categories_layout.setContentsMargins(8, 8, 8, 8)
+        categories_layout.setContentsMargins(4, 4, 4, 4)
         
         self.category_buttons = []
         categories = self.order_manager.get_categories()
         for category in categories:
             btn = QPushButton(category['name'])
-            btn.setMinimumHeight(40)
+            btn.setMinimumHeight(36)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.setStyleSheet(self._category_btn_style(False))
             btn.clicked.connect(self.category_button_clicked)
@@ -79,6 +89,8 @@ class POSScreen(QWidget):
             self.category_buttons.append(btn)
         
         categories_layout.addStretch()
+        cat_scroll.setWidget(cat_buttons_container)
+        categories_group_layout.addWidget(cat_scroll)
         cat_main_layout.addWidget(categories_group)
         content_splitter.addWidget(cat_widget)
         
@@ -180,13 +192,14 @@ class POSScreen(QWidget):
         self.total_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         summary_layout.addWidget(self.total_label)
 
-        checkout_btn = QPushButton("إتمام العملية")
+        checkout_btn = QPushButton("إتمام العملية (F12)")
         checkout_btn.setObjectName("checkout_btn")
         checkout_btn.setMinimumHeight(40)
         checkout_btn.setStyleSheet("background: #27ae60; color: white; font-weight: bold; border-radius: 6px; font-size: 15px;")
         checkout_btn.clicked.connect(self.checkout)
+        checkout_btn.setShortcut("F12")
 
-        clear_btn = QPushButton("إلغاء الطلب")
+        clear_btn = QPushButton("إلغاء الطلب (Delete)")
         clear_btn.setObjectName("clear_btn")
         clear_btn.setMinimumHeight(34)
         clear_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -206,6 +219,7 @@ class POSScreen(QWidget):
             }
         """)
         clear_btn.clicked.connect(self.clear_order)
+        clear_btn.setShortcut("Del")
 
         summary_layout.addWidget(checkout_btn)
         summary_layout.addWidget(clear_btn)

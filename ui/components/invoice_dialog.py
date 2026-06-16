@@ -21,41 +21,92 @@ class InvoiceDialog(QDialog):
     def init_ui(self):
         layout = QVBoxLayout(self)
 
-        header = QLabel(f"<b>{self.order.get('order_number','')} - فاتورة</b>")
-        header.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(header)
-
-        info = QLabel(f"التاريخ: {self.order.get('order_time', '')}")
-        info.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(info)
-
         self.text = QTextEdit()
         self.text.setReadOnly(True)
-        self.text.setPlainText(self.format_invoice_text())
+        self.text.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        self.text.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
+        self.text.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        self.text.setHtml(self.format_invoice_html())
         layout.addWidget(self.text)
 
         btn_layout = QHBoxLayout()
         print_btn = QPushButton("طباعة الفاتورة")
-        print_btn.setStyleSheet("background-color: #3498db; color: white; font-weight: bold; font-size: 14px; padding: 10px;")
+        print_btn.setStyleSheet("background-color: #3498db; color: white; font-weight: bold; font-size: 14px; padding: 10px; border-radius: 6px;")
+        print_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         print_btn.clicked.connect(self.print_direct)
         close_btn = QPushButton("إغلاق")
-        close_btn.setStyleSheet("background-color: #95a5a6; color: white; font-weight: bold; font-size: 14px; padding: 10px;")
+        close_btn.setStyleSheet("background-color: #95a5a6; color: white; font-weight: bold; font-size: 14px; padding: 10px; border-radius: 6px;")
+        close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         close_btn.clicked.connect(self.accept)
 
         btn_layout.addWidget(print_btn)
         btn_layout.addWidget(close_btn)
         layout.addLayout(btn_layout)
 
+    def format_invoice_html(self):
+        """Build a clean HTML invoice with a proper table layout."""
+        order_num = self.order.get('order_number', '')
+        order_time = self.order.get('order_time', '')
+
+        rows_html = ""
+        total = 0
+        for i, it in enumerate(self.items):
+            name = it.get('name', '')
+            qty = it.get('quantity', 0)
+            price = it.get('price_at_time', 0)
+            subtotal = qty * price
+            total += subtotal
+            bg = "#f9f9f9" if i % 2 == 0 else "#ffffff"
+            rows_html += f"""
+            <tr style="background: {bg};">
+                <td style="padding: 6px 10px; text-align: right; font-size: 13px;">{name}</td>
+                <td style="padding: 6px 10px; text-align: center; font-size: 13px;">{qty}</td>
+                <td style="padding: 6px 10px; text-align: center; font-size: 13px;">{price:.2f}</td>
+                <td style="padding: 6px 10px; text-align: center; font-size: 13px; font-weight: bold;">{subtotal:.2f}</td>
+            </tr>"""
+
+        html = f"""
+        <div style="direction: rtl; font-family: 'Segoe UI', Tahoma, sans-serif;">
+            <h2 style="text-align: center; color: #2c3e50; margin-bottom: 4px;">فاتورة</h2>
+            <p style="text-align: center; color: #7f8c8d; font-size: 12px; margin: 2px 0;">
+                رقم الطلب: <b>{order_num}</b>
+            </p>
+            <p style="text-align: center; color: #7f8c8d; font-size: 12px; margin: 2px 0 10px 0;">
+                التاريخ: {order_time}
+            </p>
+            <hr style="border: 1px solid #bdc3c7;">
+            <table width="100%" cellspacing="0" cellpadding="0" style="border-collapse: collapse; margin-top: 6px;">
+                <thead>
+                    <tr style="background: #2c3e50; color: white;">
+                        <th style="padding: 8px 10px; text-align: right; font-size: 13px;">الصنف</th>
+                        <th style="padding: 8px 10px; text-align: center; font-size: 13px;">الكمية</th>
+                        <th style="padding: 8px 10px; text-align: center; font-size: 13px;">السعر</th>
+                        <th style="padding: 8px 10px; text-align: center; font-size: 13px;">الإجمالي</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {rows_html}
+                </tbody>
+            </table>
+            <hr style="border: 1px solid #bdc3c7; margin-top: 8px;">
+            <h3 style="text-align: center; color: #27ae60; margin: 10px 0 4px 0;">
+                الإجمالي: {total:.2f} ج.م
+            </h3>
+            <p style="text-align: center; color: #95a5a6; font-size: 12px; margin-top: 12px;">
+                شكراً لزيارتكم 🙏
+            </p>
+        </div>
+        """
+        return html
+
     def format_invoice_text(self):
-        # Use Unicode LRM (\u200e) to force correct display of numbers in RTL context
-        LRM = "\u200e"
+        """Plain-text version for file saving."""
         lines = []
-        lines.append(f"رقم الطلب: {LRM}{self.order.get('order_number','')}")
-        lines.append(f"التاريخ: {LRM}{self.order.get('order_time','')}")
-        lines.append("=" * 32)
-        # Header row
-        lines.append(f"{'الصنف':<16}  {'الكمية':>6}  {'السعر':>8}  {'الإجمالي':>8}")
-        lines.append("-" * 32)
+        lines.append(f"رقم الطلب: {self.order.get('order_number','')}")
+        lines.append(f"التاريخ: {self.order.get('order_time','')}")
+        lines.append("=" * 40)
+        lines.append(f"{'الصنف':<18} {'الكمية':>4}  {'السعر':>8}  {'الإجمالي':>8}")
+        lines.append("-" * 40)
         total = 0
         for it in self.items:
             name = it.get('name', '')
@@ -63,13 +114,15 @@ class InvoiceDialog(QDialog):
             price = it.get('price_at_time', 0)
             subtotal = qty * price
             total += subtotal
-            # Each number is wrapped with LRM to prevent RTL reordering
-            lines.append(f"{name}  {LRM}{qty} x {LRM}{price:.2f} = {LRM}{subtotal:.2f} ج.م")
-        lines.append("=" * 32)
-        lines.append(f"الإجمالي: {LRM}{total:.2f} ج.م")
+            lines.append(f"{name:<18} {qty:>4}  {price:>8.2f}  {subtotal:>8.2f}")
+        lines.append("=" * 40)
+        lines.append(f"الإجمالي: {total:.2f} ج.م")
         lines.append("")
         lines.append("شكراً لزيارتكم")
         return "\n".join(lines)
+
+
+
 
     def ensure_receipts_dir(self):
         if not os.path.exists("receipts"):
