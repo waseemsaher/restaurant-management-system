@@ -97,5 +97,5 @@ class LoginScreen(QMainWindow):
     def accept_login(self):
         from ui.main_window import MainWindow
         self.main_window = MainWindow(self.user_session)
-        self.main_window.show()
+        self.main_window.showMaximized()
         self.close()

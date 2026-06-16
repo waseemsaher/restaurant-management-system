@@ -103,6 +103,7 @@ class SettingsScreen(QWidget):
         self.bak_table.setHorizontalHeaderLabels(["الاسم", "التاريخ", "الحجم", "إجراءات"])
         self.bak_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.bak_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.bak_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         bak_inner_layout.addWidget(self.bak_table)
         
         bak_layout.addWidget(bak_group)
@@ -123,16 +124,6 @@ class SettingsScreen(QWidget):
         
         try:
             self.config_manager.save_config(self.current_config)
-            
-            # Save settings to DB
-            self.db.execute_non_query("REPLACE INTO settings (setting_key, setting_value) VALUES (?, ?)", 
-                                      ('tables_enabled', '1' if self.tables_cb.isChecked() else '0'))
-            self.db.execute_non_query("REPLACE INTO settings (setting_key, setting_value) VALUES (?, ?)", 
-                                      ('printer_enabled', '1' if self.printer_cb.isChecked() else '0'))
-            self.db.execute_non_query("REPLACE INTO settings (setting_key, setting_value) VALUES (?, ?)", 
-                                      ('default_printer', self.printer_combo.currentText()))
-            self.db.execute_non_query("REPLACE INTO settings (setting_key, setting_value) VALUES (?, ?)", 
-                                      ('thank_you_message', self.msg_input.text().strip()))
             
             QMessageBox.information(self, "نجاح", "تم حفظ الإعدادات بنجاح")
         except Exception as e:

@@ -60,16 +60,17 @@ class ReturnsWindow(QWidget):
         self.items_table.setHorizontalHeaderLabels(["الصنف", "الكمية", "السعر", "الإجمالي", "استرجاع"])
         self.items_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.items_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.items_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.items_table.itemChanged.connect(self.calculate_refund)
         layout.addWidget(self.items_table)
         
         # Return Type
         type_layout = QVBoxLayout()
         self.radio_group = QButtonGroup(self)
-        self.radio_full = QRadioButton("⚫ استرجاع كامل")
+        self.radio_full = QRadioButton("استرجاع كامل")
         self.radio_full.setChecked(True)
         self.radio_full.toggled.connect(self.on_return_type_changed)
-        self.radio_partial = QRadioButton("⚪ استرجاع جزئي")
+        self.radio_partial = QRadioButton("استرجاع جزئي")
         self.radio_partial.toggled.connect(self.on_return_type_changed)
         
         self.radio_group.addButton(self.radio_full)
@@ -138,6 +139,7 @@ class ReturnsWindow(QWidget):
         ])
         self.history_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.history_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.history_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         layout.addWidget(self.history_table)
         
         self.load_history()
@@ -221,7 +223,7 @@ class ReturnsWindow(QWidget):
         refund_amount = self.calculate_refund()
         
         if refund_amount <= 0:
-            QMessageBox.warning(self, "تنبيه", "يجب تحديد أصناف للاسترجاع")
+            QMessageBox.warning(self, "تنبيه", "يجب تحديد أصناف للاسترجاع (أو الأرصدة صفر)")
             return
             
         selected_items = []
@@ -229,6 +231,10 @@ class ReturnsWindow(QWidget):
             cb = self.items_table.item(i, 4)
             if cb and cb.checkState() == Qt.CheckState.Checked:
                 selected_items.append(item)
+        
+        if not selected_items:
+            QMessageBox.warning(self, "تنبيه", "يجب تحديد صنف واحد على الأقل للاسترجاع")
+            return
                 
         reason = self.reason_input.text().strip()
         

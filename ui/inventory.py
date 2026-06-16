@@ -162,6 +162,8 @@ class InventoryScreen(QWidget):
         self.inventory_table.setHorizontalHeaderLabels(["الصنف", "الوحدة", "الكمية", "الحد الأدنى", "الحالة", "آخر تحديث"])
         self.inventory_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.inventory_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.inventory_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.inventory_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         
         table_layout.addWidget(self.inventory_table)
         
@@ -241,7 +243,16 @@ class InventoryScreen(QWidget):
         
         try:
             quantity = float(quantity_text)
-            min_quantity = float(min_quantity_text) if min_quantity_text else None
+            if quantity < 0:
+                QMessageBox.warning(self, "خطأ", "الكمية يجب أن تكون صفراً أو أكثر")
+                return
+                
+            min_quantity = None
+            if min_quantity_text:
+                min_quantity = float(min_quantity_text)
+                if min_quantity < 0:
+                    QMessageBox.warning(self, "خطأ", "الحد الأدنى يجب أن يكون صفراً أو أكثر")
+                    return
             
             self.inventory_manager.add_item(name, unit, quantity, min_quantity)
             self.load_inventory()
@@ -250,7 +261,7 @@ class InventoryScreen(QWidget):
             self.min_quantity_input.clear()
             QMessageBox.information(self, "نجاح", "تم إضافة الصنف للمخزون")
         except ValueError:
-            QMessageBox.warning(self, "خطأ", "الكمية يجب أن تكون رقماً")
+            QMessageBox.warning(self, "خطأ", "الكمية يجب أن تكون رقماً صالحاً")
 
     def get_selected_item(self):
         row = self.inventory_table.currentRow()
@@ -280,6 +291,12 @@ class InventoryScreen(QWidget):
             if not values['name'] or not values['unit']:
                 QMessageBox.warning(self, "خطأ", "اسم الصنف والوحدة مطلوبان")
                 return
+            if values['current_quantity'] < 0:
+                QMessageBox.warning(self, "خطأ", "الكمية الحالية يجب أن تكون صفراً أو أكثر")
+                return
+            if values['min_quantity'] is not None and values['min_quantity'] < 0:
+                QMessageBox.warning(self, "خطأ", "الحد الأدنى يجب أن يكون صفراً أو أكثر")
+                return
             self.inventory_manager.update_item(
                 item['id'],
                 values['name'],
@@ -290,7 +307,7 @@ class InventoryScreen(QWidget):
             self.load_inventory()
             QMessageBox.information(self, "نجاح", "تم تعديل الصنف بنجاح")
         except ValueError:
-            QMessageBox.warning(self, "خطأ", "الكمية يجب أن تكون رقماً")
+            QMessageBox.warning(self, "خطأ", "الكمية يجب أن تكون رقماً صالحاً")
     
     def add_inventory_transaction(self):
         """Add inventory transaction (purchase)"""
@@ -307,9 +324,12 @@ class InventoryScreen(QWidget):
         
         try:
             quantity = float(quantity_text)
+            if quantity <= 0:
+                QMessageBox.warning(self, "خطأ", "الكمية المضافة يجب أن تكون أكبر من الصفر")
+                return
             self.inventory_manager.add_transaction(item_id, quantity)
             self.load_inventory()
             self.transaction_quantity_input.clear()
             QMessageBox.information(self, "نجاح", "تمت إضافة الكمية للمخزون")
         except ValueError:
-            QMessageBox.warning(self, "خطأ", "الكمية يجب أن تكون رقماً")
+            QMessageBox.warning(self, "خطأ", "الكمية يجب أن تكون رقماً صالحاً")

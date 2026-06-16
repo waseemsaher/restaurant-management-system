@@ -30,7 +30,8 @@ class ShiftDetailsDialog(QDialog):
             
         s = shift_data[0]
         
-        layout.addWidget(QLabel(f"التاريخ: {s['started_at'][:10] if s['started_at'] else ''}"))
+        started_date = s['started_at'][:10] if s['started_at'] else ''
+        layout.addWidget(QLabel(f"التاريخ: {started_date}"))
         layout.addWidget(QLabel(f"الشفت: {s['shift_name']}"))
         layout.addWidget(QLabel(f"الموظف: {s['emp_name']}"))
         layout.addWidget(QLabel(f"من: {s['started_at']} إلى: {s['ended_at'] or 'مستمر'}"))
@@ -78,6 +79,7 @@ class ShiftDetailsDialog(QDialog):
         self.table.setHorizontalHeaderLabels(["رقم الأوردر", "الإجمالي", "طريقة الدفع"])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         
         orders = self.db.execute(
             "SELECT order_number, total_amount, payment_method FROM orders WHERE shift_id = ? AND is_returned=0 ORDER BY id",
@@ -145,6 +147,7 @@ class ShiftsWindow(QWidget):
         ])
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         # Hide ID column
         self.table.setColumnHidden(0, True)
         
@@ -180,7 +183,7 @@ class ShiftsWindow(QWidget):
         self.table.setRowCount(len(shifts))
         for i, s in enumerate(shifts):
             self.table.setItem(i, 0, QTableWidgetItem(str(s['id'])))
-            date_str = s['started_at'][:10] if s['started_at'] else ''
+            date_str = str(s['started_at'])[:10] if s['started_at'] else ''
             self.table.setItem(i, 1, QTableWidgetItem(date_str))
             self.table.setItem(i, 2, QTableWidgetItem(s['shift_name']))
             self.table.setItem(i, 3, QTableWidgetItem(s['emp_name']))

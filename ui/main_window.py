@@ -28,10 +28,15 @@ class MainWindow(QMainWindow):
         self.init_ui()
         self.setup_menu()
     
+    def minimumSizeHint(self):
+        """Override to prevent child widget minimum sizes from inflating
+        the window beyond the available screen area (taskbar overlap fix)."""
+        from PyQt6.QtCore import QSize
+        return QSize(800, 500)
+
     def init_ui(self):
         self.setWindowTitle("نظام إدارة المطاعم")
         self.setWindowIcon(QIcon("assets/icons/restaurant.png"))
-        self.showMaximized()
         self.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
         
         # Central widget with tabs
@@ -41,6 +46,9 @@ class MainWindow(QMainWindow):
         layout = QVBoxLayout(central_widget)
         layout.setContentsMargins(4, 2, 4, 2)
         layout.setSpacing(2)
+        # Prevent the layout from propagating child minimum sizes
+        # to the window, which would push it beyond the taskbar.
+        layout.setSizeConstraint(QVBoxLayout.SizeConstraint.SetNoConstraint)
         
         # Compact Header Bar - everything in one row
         from PyQt6.QtWidgets import QHBoxLayout
