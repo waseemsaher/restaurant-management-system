@@ -58,17 +58,17 @@ class MenuManager:
     def add_item(self, name: str, price: float, category_id: int):
         """Add new menu item"""
         query = """
-            INSERT INTO menu_items (name, price, category_id, image_path) 
-            VALUES (?, ?, ?, ?)
+            INSERT INTO menu_items (name, price, category_id) 
+            VALUES (?, ?, ?)
         """
-        self.db.execute_non_query(query, (name, price, category_id, None))
+        self.db.execute_non_query(query, (name, price, category_id))
     
     def update_item_status(self, item_id: int, is_available: bool):
         """Update item availability"""
         query = "UPDATE menu_items SET is_available = ? WHERE id = ?"
         self.db.execute_non_query(query, (is_available, item_id))
 
-    def update_item(self, item_id: int, name: str = None, price: float = None, category_id: int = None, image_path: str = None):
+    def update_item(self, item_id: int, name: str = None, price: float = None, category_id: int = None):
         """Update item fields (partial)."""
         fields = []
         params = []
@@ -81,9 +81,6 @@ class MenuManager:
         if category_id is not None:
             fields.append('category_id = ?')
             params.append(category_id)
-        if image_path is not None:
-            fields.append('image_path = ?')
-            params.append(image_path)
         if not fields:
             return
         params.append(item_id)
@@ -97,6 +94,21 @@ class MenuManager:
             (category_id,)
         )
         return category[0]['name'] if category else ""
+
+    def delete_category(self, category_id: int):
+        """Delete category if it has no items"""
+        items = self.db.execute("SELECT id FROM menu_items WHERE category_id = ?", (category_id,))
+        if items:
+            raise Exception("لا يمكن حذف القسم لاحتوائه على أصناف. يرجى نقل أو حذف الأصناف أولاً.")
+        self.db.execute_non_query("DELETE FROM menu_categories WHERE id = ?", (category_id,))
+
+    def delete_item(self, item_id: int):
+        """Delete menu item and its recipes"""
+        # We delete recipes first to avoid orphaned records
+        self.db.execute_non_query("DELETE FROM recipes WHERE item_id = ?", (item_id,))
+        # Now delete the item itself (if it has order history, it may raise an IntegrityError 
+        # depending on PRAGMA foreign_keys, which the UI should catch).
+        self.db.execute_non_query("DELETE FROM menu_items WHERE id = ?", (item_id,))
 
     # --- Inventory & Recipes helpers ---
     def get_inventory_items(self) -> list:

@@ -2,7 +2,7 @@ from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QLineEdit, QPushButton, QTableWidget, 
                              QTableWidgetItem, QHeaderView, QMessageBox,
                              QComboBox, QGroupBox, QFileDialog, QInputDialog,
-                             QDialog, QSplitter, QScrollArea)
+                             QDialog, QSplitter, QScrollArea, QFormLayout, QDialogButtonBox)
 from PyQt6.QtCore import Qt
 from modules.menu import MenuManager
 
@@ -54,6 +54,8 @@ class MenuManagerScreen(QWidget):
         self.categories_table.setHorizontalHeaderLabels(["القسم", "الحالة"])
         self.categories_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.categories_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.categories_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.categories_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         categories_layout.addWidget(self.categories_table)
         
         # Category action buttons
@@ -62,8 +64,13 @@ class MenuManagerScreen(QWidget):
         self.edit_category_btn.clicked.connect(self.edit_category)
         self.toggle_category_btn = QPushButton("تفعيل/تعطيل")
         self.toggle_category_btn.clicked.connect(self.toggle_category)
+        self.delete_category_btn = QPushButton("حذف")
+        self.delete_category_btn.setStyleSheet("background-color: #fde8e8; color: #c0392b; border: 1px solid #f5c6cb;")
+        self.delete_category_btn.clicked.connect(self.delete_category)
+        
         cat_actions.addWidget(self.edit_category_btn)
         cat_actions.addWidget(self.toggle_category_btn)
+        cat_actions.addWidget(self.delete_category_btn)
         categories_layout.addLayout(cat_actions)
         
         cat_main_layout.addWidget(categories_group)
@@ -95,16 +102,9 @@ class MenuManagerScreen(QWidget):
         items_layout.addLayout(form_row1)
         
         form_row2 = QHBoxLayout()
-        # Image chooser
-        self.image_path_label = QLabel("")
-        self.image_path_label.setStyleSheet("color: #7f8c8d; font-size: 11px;")
-        choose_img_btn = QPushButton("صورة")
-        choose_img_btn.clicked.connect(self.choose_image)
-        choose_img_btn.setMaximumWidth(60)
         add_item_btn = QPushButton("إضافة صنف")
         add_item_btn.clicked.connect(self.add_item)
-        form_row2.addWidget(choose_img_btn)
-        form_row2.addWidget(self.image_path_label, 1)
+        form_row2.addStretch()
         form_row2.addWidget(add_item_btn)
         items_layout.addLayout(form_row2)
         
@@ -116,9 +116,14 @@ class MenuManagerScreen(QWidget):
         self.toggle_item_btn.clicked.connect(self.toggle_item)
         self.manage_recipes_btn = QPushButton("الوصفة")
         self.manage_recipes_btn.clicked.connect(self.manage_recipes)
+        self.delete_item_btn = QPushButton("حذف")
+        self.delete_item_btn.setStyleSheet("background-color: #fde8e8; color: #c0392b; border: 1px solid #f5c6cb;")
+        self.delete_item_btn.clicked.connect(self.delete_item)
+        
         item_actions.addWidget(self.edit_item_btn)
         item_actions.addWidget(self.toggle_item_btn)
         item_actions.addWidget(self.manage_recipes_btn)
+        item_actions.addWidget(self.delete_item_btn)
         items_layout.addLayout(item_actions)
         
         # Items table
@@ -127,6 +132,8 @@ class MenuManagerScreen(QWidget):
         self.items_table.setHorizontalHeaderLabels(["الصنف", "القسم", "السعر", "الحالة"])
         self.items_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.items_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.items_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.items_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         items_layout.addWidget(self.items_table)
         
         items_main_layout.addWidget(items_group)
@@ -182,15 +189,7 @@ class MenuManagerScreen(QWidget):
             status_text = "متاح" if item['is_available'] else "غير متاح"
             item_widget = QTableWidgetItem(status_text)
             self.items_table.setItem(row, 3, item_widget)
-            # Image tooltip if available
-            img = item.get('image_path')
-            if img:
-                try:
-                    self.items_table.item(row,0).setToolTip(img)
-                except Exception:
-                    pass
 
-    
     def add_category(self):
         """Add new category"""
         name = self.category_name_input.text().strip()
@@ -224,6 +223,28 @@ class MenuManagerScreen(QWidget):
             self.load_categories()
             QMessageBox.information(self, "نجاح", "تم تعديل القسم")
 
+    def delete_category(self):
+        row = self.categories_table.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "خطأ", "يرجى اختيار قسم من الجدول")
+            return
+        cat_name = self.categories_table.item(row,0).text()
+        categories = self.menu_manager.get_categories()
+        cat = next((c for c in categories if c['name']==cat_name), None)
+        if not cat:
+            QMessageBox.warning(self, "خطأ", "تعذر العثور على القسم")
+            return
+            
+        reply = QMessageBox.question(self, 'تأكيد الحذف', f'هل أنت متأكد من حذف القسم "{cat_name}" نهائياً؟',
+                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if reply == QMessageBox.StandardButton.Yes:
+            try:
+                self.menu_manager.delete_category(cat['id'])
+                self.load_categories()
+                QMessageBox.information(self, "نجاح", "تم حذف القسم بنجاح")
+            except Exception as e:
+                QMessageBox.warning(self, "خطأ", str(e))
+
     def toggle_category(self):
         row = self.categories_table.currentRow()
         if row < 0:
@@ -240,11 +261,6 @@ class MenuManagerScreen(QWidget):
         self.load_categories()
         QMessageBox.information(self, "نجاح", "تم تحديث حالة القسم")
 
-    def choose_image(self):
-        fname, _ = QFileDialog.getOpenFileName(self, "اختر صورة", "", "Images (*.png *.jpg *.jpeg)")
-        if fname:
-            self.image_path_label.setText(fname)
-
     def edit_item(self):
         row = self.items_table.currentRow()
         if row < 0:
@@ -256,20 +272,51 @@ class MenuManagerScreen(QWidget):
         if not itm:
             QMessageBox.warning(self, "خطأ", "تعذر العثور على الصنف")
             return
-        new_name, ok1 = QInputDialog.getText(self, "تعديل الصنف", "الاسم:", text=itm['name'])
-        if not ok1:
+            
+        categories = self.menu_manager.get_categories()
+        dlg = EditMenuItemDialog(itm, categories, self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            data = dlg.get_data()
+            if not data['name']:
+                QMessageBox.warning(self, "خطأ", "الاسم مطلوب")
+                return
+            try:
+                new_price = float(data['price'])
+                if new_price <= 0:
+                    QMessageBox.warning(self, "خطأ", "السعر يجب أن يكون أكبر من الصفر")
+                    return
+                
+                self.menu_manager.update_item(itm['id'], name=data['name'], price=new_price, category_id=data['category_id'])
+                self.load_items()
+                QMessageBox.information(self, "نجاح", "تم تعديل الصنف")
+            except ValueError:
+                QMessageBox.warning(self, "خطأ", "السعر غير صالح")
+
+    def delete_item(self):
+        row = self.items_table.currentRow()
+        if row < 0:
+            QMessageBox.warning(self, "خطأ", "يرجى اختيار صنف من الجدول")
             return
-        new_price_text, ok2 = QInputDialog.getText(self, "تعديل الصنف", "السعر:", text=str(itm['price']))
-        if not ok2:
+        item_name = self.items_table.item(row,0).text()
+        items = self.menu_manager.get_items()
+        itm = next((i for i in items if i['name']==item_name), None)
+        if not itm:
+            QMessageBox.warning(self, "خطأ", "تعذر العثور على الصنف")
             return
-        try:
-            new_price = float(new_price_text)
-        except ValueError:
-            QMessageBox.warning(self, "خطأ", "السعر غير صالح")
-            return
-        self.menu_manager.update_item(itm['id'], name=new_name.strip(), price=new_price)
-        self.load_items()
-        QMessageBox.information(self, "نجاح", "تم تعديل الصنف")
+            
+        reply = QMessageBox.question(self, 'تأكيد الحذف', f'هل أنت متأكد من حذف الصنف "{item_name}" نهائياً؟',
+                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if reply == QMessageBox.StandardButton.Yes:
+            try:
+                self.menu_manager.delete_item(itm['id'])
+                self.load_items()
+                QMessageBox.information(self, "نجاح", "تم حذف الصنف بنجاح")
+            except Exception as e:
+                # If it's a foreign key constraint from order history, we advise disabling it instead
+                if 'FOREIGN KEY constraint failed' in str(e) or 'IntegrityError' in str(e) or 'constraint' in str(e).lower():
+                    QMessageBox.warning(self, "خطأ", "لا يمكن حذف الصنف لارتباطه بطلبات سابقة. يرجى تعطيله بدلاً من حذفه.")
+                else:
+                    QMessageBox.warning(self, "خطأ", f"تعذر حذف الصنف: {str(e)}")
 
     def toggle_item(self):
         row = self.items_table.currentRow()
@@ -319,28 +366,9 @@ class MenuManagerScreen(QWidget):
             price = float(price_text)
             self.menu_manager.add_item(name, price, category_id)
 
-            img = self.image_path_label.text().strip()
-            if img:
-                from pathlib import Path
-                import shutil
-
-                last = self.menu_manager.db.execute("SELECT id FROM menu_items ORDER BY id DESC LIMIT 1")
-                if last:
-                    item_id = last[0]['id']
-                    assets_dir = Path('assets/items')
-                    assets_dir.mkdir(parents=True, exist_ok=True)
-                    src = Path(img)
-                    dest = assets_dir / f"item_{item_id}{src.suffix}"
-                    try:
-                        shutil.copy(src, dest)
-                        self.menu_manager.update_item(item_id, image_path=str(dest))
-                    except Exception:
-                        pass
-
             self.load_items()
             self.item_name_input.clear()
             self.item_price_input.clear()
-            self.image_path_label.setText("")
             QMessageBox.information(self, "نجاح", "تم إضافة الصنف بنجاح")
         except ValueError:
             QMessageBox.warning(self, "خطأ", "السعر يجب أن يكون رقماً")
@@ -418,6 +446,9 @@ class RecipeDialog(QDialog):
         qty_text = self.qty_input.text().strip()
         try:
             qty = float(qty_text)
+            if qty <= 0:
+                QMessageBox.warning(self, 'خطأ', 'الكمية يجب أن تكون أكبر من الصفر')
+                return
         except ValueError:
             QMessageBox.warning(self, 'خطأ', 'الكمية غير صالحة')
             return
@@ -425,7 +456,39 @@ class RecipeDialog(QDialog):
             self.menu_manager.add_recipe(self.item_id, inv_id, qty)
             self.qty_input.clear()
             self.load_recipes()
-        except ValueError:
-            QMessageBox.warning(self, "خطأ", "السعر يجب أن يكون رقماً")
         except Exception as e:
-            QMessageBox.warning(self, "خطأ", f"فشل في إضافة الصنف: {str(e)}")
+            QMessageBox.warning(self, "خطأ", f"فشل في إضافة المكون: {str(e)}")
+
+class EditMenuItemDialog(QDialog):
+    def __init__(self, item: dict, categories: list, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle('تعديل صنف')
+        self.setLayoutDirection(Qt.LayoutDirection.RightToLeft)
+        self.setMinimumWidth(300)
+        
+        layout = QFormLayout(self)
+        
+        self.name_input = QLineEdit(item['name'])
+        self.price_input = QLineEdit(str(item['price']))
+        self.category_combo = QComboBox()
+        
+        for c in categories:
+            self.category_combo.addItem(c['name'], c['id'])
+            if c['id'] == item['category_id']:
+                self.category_combo.setCurrentIndex(self.category_combo.count() - 1)
+                
+        layout.addRow('الاسم:', self.name_input)
+        layout.addRow('السعر:', self.price_input)
+        layout.addRow('القسم:', self.category_combo)
+        
+        btns = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        btns.accepted.connect(self.accept)
+        btns.rejected.connect(self.reject)
+        layout.addRow(btns)
+        
+    def get_data(self):
+        return {
+            'name': self.name_input.text().strip(),
+            'price': self.price_input.text().strip(),
+            'category_id': self.category_combo.currentData()
+        }
