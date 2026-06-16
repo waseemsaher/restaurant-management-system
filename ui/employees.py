@@ -33,13 +33,13 @@ class EmployeeManager(QWidget):
         left_widget = QWidget()
         left_layout = QVBoxLayout(left_widget)
         left_layout.setContentsMargins(0, 0, 0, 0)
-        left_layout.setSpacing(6)
+        left_layout.setSpacing(15)
 
         # Add employee form
         form_group = QGroupBox("إضافة موظف جديد")
         form_layout = QFormLayout(form_group)
-        form_layout.setSpacing(10)
-        form_layout.setContentsMargins(10, 10, 10, 10)
+        form_layout.setSpacing(15)
+        form_layout.setContentsMargins(12, 12, 12, 12)
         
         self.username_input = QLineEdit()
         self.username_input.setPlaceholderText("اسم المستخدم")
@@ -67,8 +67,8 @@ class EmployeeManager(QWidget):
         # Shift assignment section
         shift_group = QGroupBox("فتح شيفت لموظف")
         shift_layout = QFormLayout(shift_group)
-        shift_layout.setSpacing(10)
-        shift_layout.setContentsMargins(10, 10, 10, 10)
+        shift_layout.setSpacing(15)
+        shift_layout.setContentsMargins(12, 12, 12, 12)
 
         self.shift_emp_combo = QComboBox()
         self.shift_emp_combo.setPlaceholderText("اختر الموظف...")
