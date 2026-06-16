@@ -81,6 +81,7 @@ class ReportsScreen(QWidget):
         self.top_items_table.setHorizontalHeaderLabels(["الصنف", "الكمية", "الإجمالي"])
         self.top_items_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.top_items_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.top_items_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         top_layout.addWidget(self.top_items_table)
         split_layout.addWidget(top_group)
         
@@ -91,6 +92,7 @@ class ReportsScreen(QWidget):
         self.cat_sales_table.setHorizontalHeaderLabels(["القسم", "الإجمالي"])
         self.cat_sales_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.cat_sales_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.cat_sales_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         cat_layout.addWidget(self.cat_sales_table)
         split_layout.addWidget(cat_group)
         
@@ -127,6 +129,7 @@ class ReportsScreen(QWidget):
         self.inv_table.setHorizontalHeaderLabels(["المادة", "الرصيد الحالي", "الوحدة", "الحد الأدنى", "الحالة"])
         self.inv_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.inv_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.inv_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         inv_layout.addWidget(self.inv_table)
         
         btn_refresh_inv = QPushButton("تحديث")

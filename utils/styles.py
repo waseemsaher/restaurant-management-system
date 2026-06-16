@@ -137,6 +137,27 @@ def get_main_style():
     QFormLayout {
         margin: 4px;
     }
+
+    /* Radio Buttons */
+    QRadioButton {
+        spacing: 6px;
+        font-weight: bold;
+        color: #1c1e21;
+    }
+    QRadioButton::indicator {
+        width: 14px;
+        height: 14px;
+        border-radius: 8px;
+        border: 2px solid #bdc3c7;
+        background-color: #ffffff;
+    }
+    QRadioButton::indicator:hover {
+        border: 2px solid #7f8c8d;
+    }
+    QRadioButton::indicator:checked {
+        border: 4px solid black;
+        background-color: white;
+    }
     """
 
 def get_login_style():

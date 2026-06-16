@@ -110,6 +110,8 @@ class EmployeeManager(QWidget):
         header.setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
         header.resizeSection(4, 180)
         self.employees_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
+        self.employees_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
+        self.employees_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
         
         table_layout.addWidget(self.employees_table)
         
