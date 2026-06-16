@@ -89,63 +89,61 @@ class InventoryScreen(QWidget):
         
         # Add inventory item form
         form_group = QGroupBox("إضافة صنف جديد")
-        form_layout = QVBoxLayout(form_group)
-        form_layout.setSpacing(3)
-        form_layout.setContentsMargins(8, 8, 8, 8)
+        form_layout = QFormLayout(form_group)
+        form_layout.setSpacing(10)
+        form_layout.setContentsMargins(10, 10, 10, 10)
         
         self.item_name_input = QLineEdit()
-        self.item_name_input.setPlaceholderText("اسم الصنف (مثال: دقيق، زيت، جبنة)")
+        self.item_name_input.setPlaceholderText("مثال: دقيق، زيت، جبنة")
         
         self.unit_combo = QComboBox()
         self.unit_combo.addItems(["kg", "g", "l", "ml", "piece", "bag"])
         
         self.initial_quantity_input = QLineEdit()
-        self.initial_quantity_input.setPlaceholderText("الكمية الأولية")
+        self.initial_quantity_input.setPlaceholderText("0.00")
         self.initial_quantity_input.setMaxLength(10)
         
         self.min_quantity_input = QLineEdit()
-        self.min_quantity_input.setPlaceholderText("الحد الأدنى (تنبيه عند الوصول)")
+        self.min_quantity_input.setPlaceholderText("تنبيه عند الوصول لـ...")
         self.min_quantity_input.setMaxLength(10)
         
         add_btn = QPushButton("إضافة صنف")
+        add_btn.setMinimumHeight(35)
         add_btn.clicked.connect(self.add_inventory_item)
         
-        form_layout.addWidget(QLabel("اسم الصنف:"))
-        form_layout.addWidget(self.item_name_input)
-        form_layout.addWidget(QLabel("وحدة القياس:"))
-        form_layout.addWidget(self.unit_combo)
-        form_layout.addWidget(QLabel("الكمية الأولية:"))
-        form_layout.addWidget(self.initial_quantity_input)
-        form_layout.addWidget(QLabel("الحد الأدنى:"))
-        form_layout.addWidget(self.min_quantity_input)
-        form_layout.addWidget(add_btn)
+        form_layout.addRow("اسم الصنف:", self.item_name_input)
+        form_layout.addRow("وحدة القياس:", self.unit_combo)
+        form_layout.addRow("الكمية الأولية:", self.initial_quantity_input)
+        form_layout.addRow("الحد الأدنى:", self.min_quantity_input)
+        form_layout.addRow("", add_btn)
         
         forms_layout.addWidget(form_group)
         
         # Add inventory transaction form
         transaction_group = QGroupBox("إضافة كمية (مشتريات)")
-        transaction_layout = QVBoxLayout(transaction_group)
-        transaction_layout.setSpacing(3)
-        transaction_layout.setContentsMargins(8, 8, 8, 8)
+        transaction_layout = QFormLayout(transaction_group)
+        transaction_layout.setSpacing(10)
+        transaction_layout.setContentsMargins(10, 10, 10, 10)
         
         self.transaction_item_combo = QComboBox()
         
         self.transaction_quantity_input = QLineEdit()
-        self.transaction_quantity_input.setPlaceholderText("الكمية المضافة")
+        self.transaction_quantity_input.setPlaceholderText("0.00")
         self.transaction_quantity_input.setMaxLength(10)
         
         add_transaction_btn = QPushButton("إضافة كمية")
+        add_transaction_btn.setMinimumHeight(35)
         add_transaction_btn.clicked.connect(self.add_inventory_transaction)
         
-        transaction_layout.addWidget(QLabel("الصنف:"))
-        transaction_layout.addWidget(self.transaction_item_combo)
-        transaction_layout.addWidget(QLabel("الكمية المضافة:"))
-        transaction_layout.addWidget(self.transaction_quantity_input)
-        transaction_layout.addWidget(add_transaction_btn)
+        transaction_layout.addRow("الصنف:", self.transaction_item_combo)
+        transaction_layout.addRow("الكمية المضافة:", self.transaction_quantity_input)
+        transaction_layout.addRow("", add_transaction_btn)
 
-        edit_btn = QPushButton("تعديل الصنف")
+        edit_btn = QPushButton("تعديل الصنف المحدد")
+        edit_btn.setMinimumHeight(35)
+        edit_btn.setStyleSheet("background-color: #f39c12; color: white;")
         edit_btn.clicked.connect(self.edit_selected_item)
-        transaction_layout.addWidget(edit_btn)
+        transaction_layout.addRow("", edit_btn)
         
         forms_layout.addWidget(transaction_group)
         forms_layout.addStretch()
