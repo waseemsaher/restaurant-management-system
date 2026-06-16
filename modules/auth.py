@@ -120,3 +120,12 @@ class AuthManager:
             (employee_id,)
         )
         return employees[0] if employees else None
+
+    def delete_employee(self, employee_id: int):
+        """Delete employee account if they have no linked records"""
+        # Check for shifts or orders
+        shifts = self.db.execute("SELECT id FROM shifts WHERE employee_id = ? LIMIT 1", (employee_id,))
+        orders = self.db.execute("SELECT id FROM orders WHERE employee_id = ? LIMIT 1", (employee_id,))
+        if shifts or orders:
+            raise Exception("لا يمكن حذف الموظف لارتباطه بسجلات (شيفتات أو طلبات). يرجى تعطيله بدلاً من حذفه.")
+        self.db.execute_non_query("DELETE FROM employees WHERE id = ?", (employee_id,))

@@ -1,7 +1,7 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                              QLineEdit, QPushButton, QTableWidget, 
                              QTableWidgetItem, QHeaderView, QMessageBox,
-                             QComboBox, QGroupBox, QSplitter, QInputDialog)
+                             QComboBox, QGroupBox, QSplitter, QInputDialog, QFormLayout)
 from PyQt6.QtCore import Qt
 from modules.auth import AuthManager
 from database.db import Database
@@ -37,9 +37,9 @@ class EmployeeManager(QWidget):
 
         # Add employee form
         form_group = QGroupBox("إضافة موظف جديد")
-        form_layout = QVBoxLayout(form_group)
-        form_layout.setSpacing(3)
-        form_layout.setContentsMargins(8, 8, 8, 8)
+        form_layout = QFormLayout(form_group)
+        form_layout.setSpacing(10)
+        form_layout.setContentsMargins(10, 10, 10, 10)
         
         self.username_input = QLineEdit()
         self.username_input.setPlaceholderText("اسم المستخدم")
@@ -52,25 +52,23 @@ class EmployeeManager(QWidget):
         self.role_combo.addItems(["كاشير", "مدير", "صاحب"])
         
         add_btn = QPushButton("إضافة موظف")
-        add_btn.setStyleSheet("background-color: #27ae60; color: white; font-weight: bold; padding: 8px; border-radius: 6px;")
+        add_btn.setMinimumHeight(35)
+        add_btn.setStyleSheet("background-color: #27ae60; color: white; font-weight: bold; border-radius: 6px;")
         add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         add_btn.clicked.connect(self.add_employee)
         
-        form_layout.addWidget(QLabel("اسم المستخدم:"))
-        form_layout.addWidget(self.username_input)
-        form_layout.addWidget(QLabel("كلمة المرور:"))
-        form_layout.addWidget(self.password_input)
-        form_layout.addWidget(QLabel("الدور:"))
-        form_layout.addWidget(self.role_combo)
-        form_layout.addWidget(add_btn)
+        form_layout.addRow("اسم المستخدم:", self.username_input)
+        form_layout.addRow("كلمة المرور:", self.password_input)
+        form_layout.addRow("الدور:", self.role_combo)
+        form_layout.addRow("", add_btn)
 
         left_layout.addWidget(form_group)
 
         # Shift assignment section
         shift_group = QGroupBox("فتح شيفت لموظف")
-        shift_layout = QVBoxLayout(shift_group)
-        shift_layout.setSpacing(3)
-        shift_layout.setContentsMargins(8, 8, 8, 8)
+        shift_layout = QFormLayout(shift_group)
+        shift_layout.setSpacing(10)
+        shift_layout.setContentsMargins(10, 10, 10, 10)
 
         self.shift_emp_combo = QComboBox()
         self.shift_emp_combo.setPlaceholderText("اختر الموظف...")
@@ -79,15 +77,14 @@ class EmployeeManager(QWidget):
         self.shift_type_combo.addItems(["صباحي", "مسائي"])
 
         open_shift_btn = QPushButton("فتح شيفت")
-        open_shift_btn.setStyleSheet("background-color: #3498db; color: white; font-weight: bold; padding: 8px; border-radius: 6px;")
+        open_shift_btn.setMinimumHeight(35)
+        open_shift_btn.setStyleSheet("background-color: #3498db; color: white; font-weight: bold; border-radius: 6px;")
         open_shift_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         open_shift_btn.clicked.connect(self.open_shift_for_employee)
 
-        shift_layout.addWidget(QLabel("الموظف:"))
-        shift_layout.addWidget(self.shift_emp_combo)
-        shift_layout.addWidget(QLabel("نوع الشيفت:"))
-        shift_layout.addWidget(self.shift_type_combo)
-        shift_layout.addWidget(open_shift_btn)
+        shift_layout.addRow("الموظف:", self.shift_emp_combo)
+        shift_layout.addRow("نوع الشيفت:", self.shift_type_combo)
+        shift_layout.addRow("", open_shift_btn)
 
         left_layout.addWidget(shift_group)
         left_layout.addStretch()
@@ -108,7 +105,7 @@ class EmployeeManager(QWidget):
         header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(3, QHeaderView.ResizeMode.ResizeToContents)
         header.setSectionResizeMode(4, QHeaderView.ResizeMode.Fixed)
-        header.resizeSection(4, 180)
+        header.resizeSection(4, 200)
         self.employees_table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
         self.employees_table.setSelectionBehavior(QTableWidget.SelectionBehavior.SelectRows)
         self.employees_table.setSelectionMode(QTableWidget.SelectionMode.SingleSelection)
@@ -170,7 +167,7 @@ class EmployeeManager(QWidget):
             actions_widget = QWidget()
             actions_layout = QHBoxLayout(actions_widget)
             actions_layout.setContentsMargins(4, 2, 4, 2)
-            actions_layout.setSpacing(4)
+            actions_layout.setSpacing(6)
 
             # Toggle active/inactive button
             if is_active:
@@ -197,14 +194,45 @@ class EmployeeManager(QWidget):
             toggle_btn.clicked.connect(
                 lambda checked, eid=employee['id'], active=is_active: self.toggle_employee(eid, active)
             )
+            
+            delete_btn = QPushButton("حذف")
+            delete_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #fde8e8; color: #c0392b;
+                    font-weight: bold; border-radius: 4px; padding: 4px 8px;
+                    border: 1px solid #f5c6cb;
+                }
+                QPushButton:hover { background-color: #c0392b; color: white; }
+            """)
+            delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            delete_btn.clicked.connect(
+                lambda checked, eid=employee['id'], name=employee['username']: self.delete_employee(eid, name)
+            )
+            
             actions_layout.addWidget(toggle_btn)
-
+            actions_layout.addWidget(delete_btn)
             self.employees_table.setCellWidget(row, 4, actions_widget)
 
             # Add to shift combo (only active employees)
             if is_active:
                 self.shift_emp_combo.addItem(f"{employee['username']} ({role_text})", employee['id'])
     
+    def delete_employee(self, employee_id: int, username: str):
+        """Delete employee account"""
+        if employee_id == self.user_session.get('id'):
+            QMessageBox.warning(self, "خطأ", "لا يمكنك حذف حسابك الخاص!")
+            return
+
+        reply = QMessageBox.question(self, 'تأكيد الحذف', f'هل أنت متأكد من حذف الموظف "{username}" نهائياً؟',
+                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+        if reply == QMessageBox.StandardButton.Yes:
+            try:
+                self.auth.delete_employee(employee_id)
+                self.load_employees()
+                QMessageBox.information(self, "نجاح", "تم حذف الموظف بنجاح")
+            except Exception as e:
+                QMessageBox.warning(self, "خطأ", str(e))
+
     def toggle_employee(self, employee_id: int, currently_active: bool):
         """Toggle employee active status"""
         # Prevent deactivating yourself
